@@ -1,0 +1,21 @@
+{
+  "name": "study-orillusion",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build --config vite.config.github.js",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@orillusion/core": "^0.7.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vite": "^4.3.5"
+  }
+}
