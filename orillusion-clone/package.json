@@ -1,5 +1,5 @@
 {
-  "name": "orillusion-sample",
+  "name": "orillusion-clone",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -11,9 +11,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@orillusion/core": "^0.7.2"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^5.4.5",
     "vite": "^4.3.5"
