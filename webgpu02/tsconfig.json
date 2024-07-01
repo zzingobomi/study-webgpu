@@ -4,11 +4,12 @@
     "outDir": "dist",
     "target": "es6",
     "lib": ["es2017", "dom"],
-    "types": ["node", "@webgpu/types"],
+    "types": ["vite/client", "node", "@webgpu/types"],
     "module": "es2015",
     "esModuleInterop": true,
     "strict": true,
     "sourceMap": true
   },
+  "include": ["src"],
   "exclude": ["node_modules"]
 }
