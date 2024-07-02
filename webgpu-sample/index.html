@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Webgpu Sample</title>
+  <style>
+    html,
+    body {
+      font-family: Avenir, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+    }
+    .menu {
+      width: 200px;
+      height: 100%;
+      border-right: 1px solid #888;
+      overflow: auto;
+      padding: 0 10px;
+    }
+    .menu > a {
+      display: block;
+      margin: 5px 0;
+      color: #045b88;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    a.active {
+      color: red;
+    }
+    iframe {
+      flex-grow: 1;
+      border: none;
+    }    
+  </style>
+</head>
+<body>
+  <div class="menu">
+    <h3>WebGPU Sample</h3>    
+    <hr />
+    <a class="sample active" target="00_helloWebgpu">Hello WebGPU</a>    
+  </div>
+  <iframe></iframe>  
+  <script>
+    const iframe = document.querySelector("iframe");    
+    const samples = document.querySelectorAll(".sample");    
+    for (let sample of samples) {      
+      sample.addEventListener("click", () => {        
+        window.location.hash = sample.target;        
+        iframe.src = "./samples/" + sample.target + ".html";        
+        document.querySelector(".active").classList.remove("active");
+        sample.classList.add("active");
+      });
+    }    
+    if (window.location.hash) {        
+      document
+        .querySelector(`[target='${window.location.hash.slice(1)}']`)
+        .click();
+    }
+    else {
+      document.querySelector(".sample.active").click();
+    }
+  </script>
+</body>
+</html>
