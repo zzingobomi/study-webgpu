@@ -12,9 +12,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@orillusion/core": "^0.7.2"
+    "@orillusion/core": "^0.7.2",
+    "@orillusion/stats": "^0.2.2",
+    "dat.gui": "^0.7.9"
   },
   "devDependencies": {
+    "@types/dat.gui": "^0.7.13",
     "typescript": "^5.4.5",
     "vite": "^4.3.5"
   }
