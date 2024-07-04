@@ -1,7 +1,8 @@
-import basicInstanced from "./shaders/basic.instanced.vert.wgsl?raw";
-import positionFrag from "./shaders/position.frag.wgsl?raw";
+import basicVert from "./shaders/basic.vert.wgsl?raw";
+import imageTexture from "./shaders/imageTexture.frag.wgsl?raw";
 import * as cube from "./util/cube";
 import { getMvpMatrix } from "./util/math";
+import textureUrl from "/texture.webp?url";
 
 // initialize webgpu device & config canvas context
 async function initWebGPU(canvas: HTMLCanvasElement) {
@@ -28,7 +29,7 @@ async function initWebGPU(canvas: HTMLCanvasElement) {
   return { device, context, format, size };
 }
 
-// create a simple pipeline & buffers
+// create pipeline & buffers
 async function initPipeline(
   device: GPUDevice,
   format: GPUTextureFormat,
@@ -39,7 +40,7 @@ async function initPipeline(
     layout: "auto",
     vertex: {
       module: device.createShaderModule({
-        code: basicInstanced,
+        code: basicVert,
       }),
       entryPoint: "main",
       buffers: [
@@ -64,7 +65,7 @@ async function initPipeline(
     },
     fragment: {
       module: device.createShaderModule({
-        code: positionFrag,
+        code: imageTexture,
       }),
       entryPoint: "main",
       targets: [{ format: format }],
@@ -73,6 +74,7 @@ async function initPipeline(
       topology: "triangle-list",
       // Culling backfaces pointing away from the camera
       cullMode: "back",
+      frontFace: "ccw",
     },
     // Enable depth testing since we have z-level positions
     // Fragment closest to the camera is rendered in front
@@ -101,13 +103,13 @@ async function initPipeline(
 
   // create a 4x4xNUM STORAGE buffer to store matrix
   const mvpBuffer = device.createBuffer({
-    label: "GPUBuffer store n*4*4 matrix",
-    size: 4 * 4 * 4 * NUM, // 4 x 4 x float32 x NUM
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    label: "GPUBuffer store 4x4 matrix",
+    size: 4 * 4 * 4, // 4 x 4 x float32
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
   // create a uniform group for Matrix
-  const group = device.createBindGroup({
+  const uniformGroup = device.createBindGroup({
     label: "Uniform Group with matrix",
     layout: pipeline.getBindGroupLayout(0),
     entries: [
@@ -126,30 +128,56 @@ async function initPipeline(
     depthView,
     vertexBuffer,
     mvpBuffer,
-    group,
+    uniformGroup,
   };
 }
 
 // create & submit device commands
 function draw(
   device: GPUDevice,
-  renderPassDescriptor: GPURenderPassDescriptor,
-  renderBundle: Iterable<GPURenderBundle>
+  context: GPUCanvasContext,
+  pipelineObj: {
+    pipeline: GPURenderPipeline;
+    vertexBuffer: GPUBuffer;
+    mvpBuffer: GPUBuffer;
+    uniformGroup: GPUBindGroup;
+    depthView: GPUTextureView;
+  },
+  textureGroup: GPUBindGroup
 ) {
   const commandEncoder = device.createCommandEncoder();
-  console.time("executeBundles");
+  const renderPassDescriptor: GPURenderPassDescriptor = {
+    colorAttachments: [
+      {
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+        loadOp: "clear",
+        storeOp: "store",
+      },
+    ],
+    depthStencilAttachment: {
+      view: pipelineObj.depthView,
+      depthClearValue: 1.0,
+      depthLoadOp: "clear",
+      depthStoreOp: "store",
+    },
+  };
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  // execute bundles, could save over 10X CPU time
-  // but won't help with GPU time
-  passEncoder.executeBundles(renderBundle);
+  passEncoder.setPipeline(pipelineObj.pipeline);
+  // set uniformGroup
+  passEncoder.setBindGroup(0, pipelineObj.uniformGroup);
+  // set textureGroup
+  passEncoder.setBindGroup(1, textureGroup);
+  // set vertex
+  passEncoder.setVertexBuffer(0, pipelineObj.vertexBuffer);
+  // draw vertex count of cube
+  passEncoder.draw(cube.vertexCount);
   passEncoder.end();
-  console.timeEnd("executeBundles");
+
   // webgpu run in a separate process, all the commands will be executed after submit
   device.queue.submit([commandEncoder.finish()]);
 }
 
-// total objects
-const NUM = 10000;
 async function run() {
   const canvas = document.querySelector("canvas");
   if (!canvas) {
@@ -158,79 +186,62 @@ async function run() {
   const { device, context, format, size } = await initWebGPU(canvas);
   const pipelineObj = await initPipeline(device, format, size);
 
-  // create objects
-  let aspect = size.width / size.height;
-  const scene: any[] = [];
-  const mvpBuffer = new Float32Array(NUM * 4 * 4);
-  for (let i = 0; i < NUM; i++) {
-    // create simple object
-    const position = {
-      x: Math.random() * 40 - 20,
-      y: Math.random() * 40 - 20,
-      z: -50 - Math.random() * 50,
-    };
-    const rotation = { x: 0, y: 0, z: 0 };
-    const scale = { x: 1, y: 1, z: 1 };
-    scene.push({ position, rotation, scale });
-  }
+  // fetch an image and upload to GPUTexture
+  const res = await fetch(textureUrl);
+  const img = await res.blob();
+  const bitmap = await createImageBitmap(img);
+  const textureSize = [bitmap.width, bitmap.height];
+  // create empty texture
+  const texture = device.createTexture({
+    size: textureSize,
+    format: "rgba8unorm",
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  // update image to GPUTexture
+  device.queue.copyExternalImageToTexture(
+    { source: bitmap },
+    { texture: texture },
+    textureSize
+  );
+  // create a sampler with linear filtering for smooth interpolation.
+  const sampler = device.createSampler({
+    magFilter: "linear",
+    minFilter: "linear",
+  });
+  const textureGroup = device.createBindGroup({
+    label: "Texture group with Texture/Sampler",
+    layout: pipelineObj.pipeline.getBindGroupLayout(1),
+    entries: [
+      {
+        binding: 0,
+        resource: sampler,
+      },
+      {
+        binding: 1,
+        resource: texture.createView(),
+      },
+    ],
+  });
 
-  // record renderBundle to save CPU encoder time
-  let renderBundle: Iterable<GPURenderBundle>;
-  {
-    const passEncoder = device.createRenderBundleEncoder({
-      colorFormats: [format],
-      depthStencilFormat: "depth24plus",
-    });
-    passEncoder.setPipeline(pipelineObj.pipeline);
-    // asume we have different objects
-    // need to change vertex and group on every draw
-    // that requires a lot of cpu time for a large NUM
-    console.time("recordBundles");
-    for (let i = 0; i < NUM; i++) {
-      passEncoder.setVertexBuffer(0, pipelineObj.vertexBuffer);
-      passEncoder.setBindGroup(0, pipelineObj.group);
-      passEncoder.draw(cube.vertexCount, 1, 0, i);
-    }
-    console.timeEnd("recordBundles");
-    renderBundle = [passEncoder.finish()];
-  }
+  // default state
+  let aspect = size.width / size.height;
+  const position = { x: 0, y: 0, z: -5 };
+  const scale = { x: 1, y: 1, z: 1 };
+  const rotation = { x: 0, y: 0, z: 0 };
 
   // start loop
   function frame() {
-    // update rotation for each object
-    for (let i = 0; i < scene.length; i++) {
-      const obj = scene[i];
-      const now = Date.now() / 1000;
-      obj.rotation.x = Math.sin(now + i);
-      obj.rotation.y = Math.cos(now + i);
-      const mvpMatrix = getMvpMatrix(
-        aspect,
-        obj.position,
-        obj.rotation,
-        obj.scale
-      );
-      mvpBuffer.set(mvpMatrix, i * 4 * 4);
-    }
-    device.queue.writeBuffer(pipelineObj.mvpBuffer, 0, mvpBuffer);
-
-    const renderPassDescriptor: GPURenderPassDescriptor = {
-      colorAttachments: [
-        {
-          view: context.getCurrentTexture().createView(),
-          clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
-          loadOp: "clear",
-          storeOp: "store",
-        },
-      ],
-      depthStencilAttachment: {
-        view: pipelineObj.depthView,
-        depthClearValue: 1.0,
-        depthLoadOp: "clear",
-        depthStoreOp: "store",
-      },
-    };
-
-    draw(device, renderPassDescriptor, renderBundle);
+    // rotate by time, and update transform matrix
+    const now = Date.now() / 1000;
+    rotation.x = Math.sin(now);
+    rotation.y = Math.cos(now);
+    const mvpMatrix = getMvpMatrix(aspect, position, rotation, scale);
+    device.queue.writeBuffer(pipelineObj.mvpBuffer, 0, mvpMatrix.buffer);
+    // then draw
+    draw(device, context, pipelineObj, textureGroup);
     requestAnimationFrame(frame);
   }
   frame();
