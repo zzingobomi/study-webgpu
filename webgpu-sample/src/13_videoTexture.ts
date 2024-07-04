@@ -1,7 +1,8 @@
 import basicVert from "./shaders/basic.vert.wgsl?raw";
-import imageTexture from "./shaders/imageTexture.frag.wgsl?raw";
+import videoTexture from "./shaders/videoTexture.frag.wgsl?raw";
 import * as cube from "./util/cube";
 import { getMvpMatrix } from "./util/math";
+import videoUrl from "/video.mp4?url";
 
 // initialize webgpu device & config canvas context
 async function initWebGPU(canvas: HTMLCanvasElement) {
@@ -64,7 +65,7 @@ async function initPipeline(
     },
     fragment: {
       module: device.createShaderModule({
-        code: imageTexture,
+        code: videoTexture,
       }),
       entryPoint: "main",
       targets: [{ format: format }],
@@ -142,7 +143,7 @@ function draw(
     uniformGroup: GPUBindGroup;
     depthView: GPUTextureView;
   },
-  textureGroup: GPUBindGroup
+  videoGroup: GPUBindGroup
 ) {
   const commandEncoder = device.createCommandEncoder();
   const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -165,7 +166,7 @@ function draw(
   passEncoder.setPipeline(pipelineObj.pipeline);
   // set uniformGroup
   passEncoder.setBindGroup(0, pipelineObj.uniformGroup);
-  passEncoder.setBindGroup(1, textureGroup);
+  passEncoder.setBindGroup(1, videoGroup);
   // set vertex
   passEncoder.setVertexBuffer(0, pipelineObj.vertexBuffer);
   // draw vertex count of cube
@@ -177,42 +178,25 @@ function draw(
 }
 
 async function run() {
-  const canvas = document.querySelector("canvas#webgpu") as HTMLCanvasElement;
-  const canvas2 = document.querySelector("canvas#canvas") as HTMLCanvasElement;
-  if (!canvas || !canvas2) {
+  // set video element and play in advanced
+  const video = document.createElement("video");
+  video.loop = true;
+  video.autoplay = true;
+  video.muted = true;
+  video.src = videoUrl;
+  await video.play();
+
+  const canvas = document.querySelector("canvas");
+  if (!canvas) {
     throw new Error("No Canvas");
   }
   const { device, context, format, size } = await initWebGPU(canvas);
   const pipelineObj = await initPipeline(device, format, size);
 
-  // create empty texture
-  const textureSize = [canvas2.width, canvas2.height];
-  const texture = device.createTexture({
-    size: textureSize,
-    format: "rgba8unorm",
-    usage:
-      GPUTextureUsage.TEXTURE_BINDING |
-      GPUTextureUsage.COPY_DST |
-      GPUTextureUsage.RENDER_ATTACHMENT,
-  });
   // create a sampler with linear filtering for smooth interpolation.
   const sampler = device.createSampler({
     magFilter: "linear",
     minFilter: "linear",
-  });
-  const textureGroup = device.createBindGroup({
-    label: "Texture group with Texture/Sampler",
-    layout: pipelineObj.pipeline.getBindGroupLayout(1),
-    entries: [
-      {
-        binding: 0,
-        resource: sampler,
-      },
-      {
-        binding: 1,
-        resource: texture.createView(),
-      },
-    ],
   });
 
   // default state
@@ -223,23 +207,51 @@ async function run() {
 
   // start loop
   function frame() {
+    // video frame rate may not different with page render rate
+    // we can use VideoFrame to force video decoding current frame
+    const videoFrame = new VideoFrame(video);
+    // it can be imported to webgpu as texture source with the `webgpu-developer-features` flag enabled
+    // const texture = device.importExternalTexture({
+    //     source: videoFrame // need `webgpu-developer-features`
+    // })
+    // but in this demo, we don't acctully use it, just close it
+    videoFrame.close();
+
+    // external texture will be automatically destroyed as soon as JS retures
+    // cannot be interrupt by any async functions before renderring
+    // e.g. event callbacks, or await functions
+    // so need to re-load external video every frame
+    const texture = device.importExternalTexture({
+      source: video,
+    });
+
+    // also need to re-create a bindGroup for external texture
+    const videoGroup = device.createBindGroup({
+      layout: pipelineObj.pipeline.getBindGroupLayout(1),
+      entries: [
+        {
+          binding: 0,
+          resource: sampler,
+        },
+        {
+          binding: 1,
+          resource: texture,
+        },
+      ],
+    });
+
     // rotate by time, and update transform matrix
     const now = Date.now() / 1000;
     rotation.x = Math.sin(now);
     rotation.y = Math.cos(now);
     const mvpMatrix = getMvpMatrix(aspect, position, rotation, scale);
     device.queue.writeBuffer(pipelineObj.mvpBuffer, 0, mvpMatrix.buffer);
-    // update texture from canvas every frame
-    device.queue.copyExternalImageToTexture(
-      { source: canvas2 },
-      { texture: texture },
-      textureSize
-    );
+
     // then draw
-    draw(device, context, pipelineObj, textureGroup);
+    draw(device, context, pipelineObj, videoGroup);
     requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+  frame();
 
   // re-configure context on resize
   window.addEventListener("resize", () => {
@@ -257,45 +269,6 @@ async function run() {
     // update aspect
     aspect = size.width / size.height;
   });
-
-  // a simple 2d canvas whiteboard
-  {
-    const ctx = canvas2.getContext("2d");
-    if (!ctx) {
-      throw new Error("No support 2d");
-    }
-    ctx.fillStyle = "#fff";
-    ctx.lineWidth = 5;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.fillRect(0, 0, canvas2.width, canvas2.height);
-
-    let drawing = false;
-    let lastX = 0,
-      lastY = 0;
-    let hue = 0;
-    canvas2.addEventListener("pointerdown", (e: PointerEvent) => {
-      drawing = true;
-      lastX = e.offsetX;
-      lastY = e.offsetY;
-    });
-    canvas2.addEventListener("pointermove", (e: PointerEvent) => {
-      if (!drawing) return;
-      const x = e.offsetX;
-      const y = e.offsetY;
-      hue = hue > 360 ? 0 : hue + 1;
-      ctx.strokeStyle = `hsl(${hue}, 90%, 50%)`;
-      ctx.beginPath();
-      ctx.moveTo(lastX, lastY);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-
-      lastX = x;
-      lastY = y;
-    });
-    canvas2.addEventListener("pointerup", () => (drawing = false));
-    canvas2.addEventListener("pointerout", () => (drawing = false));
-  }
 }
 
 run();
