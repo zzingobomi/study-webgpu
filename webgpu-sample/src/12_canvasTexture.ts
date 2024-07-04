@@ -239,7 +239,7 @@ async function run() {
     draw(device, context, pipelineObj, textureGroup);
     requestAnimationFrame(frame);
   }
-  frame();
+  requestAnimationFrame(frame);
 
   // re-configure context on resize
   window.addEventListener("resize", () => {
