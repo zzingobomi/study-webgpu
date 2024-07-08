@@ -11,8 +11,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "dat.gui": "^0.7.9"
+  },
   "devDependencies": {
+    "@types/dat.gui": "^0.7.13",
     "@webgpu/types": "^0.1.40",
     "typescript": "^5.4.5",
     "vite": "^4.3.5"

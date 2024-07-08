@@ -23,9 +23,9 @@
     {
       "type": "chrome",
       "request": "launch",
-      "name": "orillusion-clone",
-      "url": "http://localhost:7200",
-      "webRoot": "${workspaceFolder}/orillusion-clone/src",
+      "name": "orillusion-debug",
+      "url": "http://localhost:7300",
+      "webRoot": "${workspaceFolder}/orillusion-debug/src",
       "sourceMaps": true
     }
   ]

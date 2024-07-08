@@ -5,19 +5,29 @@
     "module": "ESNext",
     "lib": ["ESNext", "DOM"],
     "moduleResolution": "bundler",
-    "strict": false,
     "sourceMap": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
+    "declaration": true,
     "noEmit": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
+    "rootDir": "./",
+    "baseUrl": "./",
+    "paths": {
+      "../*": ["src/*"],
+      "@orillusion/*": ["packages/*"],
+      "@orillusion/core": ["src"],
+      "@samples/*": ["samples/*"],
+      "dat.gui": ["packages/debug/dat.gui.module"]
+    },
     "types": ["vite/client", "@webgpu/types"],
-    "strictPropertyInitialization": false,
-    "noImplicitAny": false,
-    "allowJs": true
+    // for dev
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
+    // "noImplicitReturns": true,
+    "allowJs": true,
+    "strict": false,
+    "experimentalDecorators": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist", "public"]
 }
