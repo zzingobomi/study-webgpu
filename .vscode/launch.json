@@ -19,6 +19,14 @@
       "url": "http://localhost:7000",
       "webRoot": "${workspaceFolder}/webgpu-sample/src",
       "sourceMaps": true
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "orillusion-debug",
+      "url": "http://localhost:7300",
+      "webRoot": "${workspaceFolder}/orillusion-debug/src",
+      "sourceMaps": true
     }
   ]
 }

@@ -1,0 +1,125 @@
+@startuml
+
+class Engine3D {
+  +Res res
+}
+
+' asset
+class Res
+
+' Event
+class CEvent
+class CEventDispatcher {
+  -any listeners
+}
+class CEventListener
+
+' gfx/graphics/webGpu
+class Context3D {
+  +GPUAdapter adapter
+  +GPUDevice device
+  +GPUCanvasContext context
+  +GPUTextureFormat presentationFormat
+  +HTMLCanvasElement canvas
+
+  +init()
+}
+
+' gfx/renderJob/jobs
+class RendererJob
+class ForwardRenderJob
+class RenderMap {
+  -Map<PassType, RendererBase> map
+  -RendererBase[] passRendererList
+}
+
+' gfx/renderJob/passRenderer
+class RendererBase
+
+' gfx/renderJob/passRenderer/state
+enum PassType {
+  COLOR
+  NORMAL
+  POSITION
+  GRAPHIC
+
+  GI
+  Cluster
+  SHADOW
+  POINT_SHADOW
+  POST
+  DEPTH
+  REFLECTION
+}
+
+' core
+class Scene3D
+class View3D
+
+' core/entities
+class Entity {
+  +name
+  +instanceID
+  +Entity[] entityChildren
+
+  +addChild()
+}
+class Object3D
+
+
+' loader
+class LoaderBase {
+  +string baseUrl
+  +string initUrl
+
+  +loadTxt()
+  +read()
+}
+class FileLoader {
+  +load()
+}
+
+' loader/parser
+class ParserBase {
+  +string baseUrl
+  +string initUrl
+  +any userData
+  +any data
+
+  +parseString()
+  +parseJson()
+  +parseBuffer()
+}
+class OBJParser {
+  +Map<MatData, MatData> matLibs
+  +Map<GeometryData, GeometryData> geometrys
+}
+class GLTFParser
+class B3DMParser
+
+
+' relations
+Engine3D --> Res
+
+CEvent .. CEventDispatcher
+CEvent .. CEventListener
+
+CEventDispatcher <|-- Context3D
+RendererJob <|-- ForwardRenderJob
+
+CEventDispatcher <|-- RendererBase
+RendererBase .. PassType
+RenderMap *-- RendererBase
+
+CEventDispatcher <|-- Entity
+Entity <|-- Object3D
+Object3D <|-- Scene3D
+CEventListener <|-- View3D
+
+ParserBase <|-- OBJParser
+ParserBase <|-- GLTFParser
+ParserBase <|-- B3DMParser
+LoaderBase <|-- FileLoader
+FileLoader .. ParserBase
+
+@enduml
