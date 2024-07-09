@@ -8,11 +8,11 @@ import {
   Object3D,
   Scene3D,
   View3D,
-} from ".";
+} from "../..";
 import { Stats } from "@orillusion/stats";
 import dat from "dat.gui";
 
-class Main {
+class Sample_AddRemove {
   view: View3D;
 
   async run() {
@@ -89,4 +89,4 @@ class Main {
   }
 }
 
-new Main().run();
+new Sample_AddRemove().run();

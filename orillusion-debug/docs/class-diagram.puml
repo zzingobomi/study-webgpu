@@ -52,6 +52,36 @@ enum PassType {
   REFLECTION
 }
 
+'components
+interface IComponent {
+  +Object3D object3D
+  +Transform transform
+
+  +init()
+  +start()
+  +stop()
+  +onEnable();
+  +onDisable();
+  +onUpdate()
+  +onLateUpdate()
+  +onBeforeUpdate()
+  +onCompute()
+  +onGraphic()
+}
+
+class ComponentBase {
+}
+
+class Transform {
+
+}
+
+'components/renderer
+class RenderNode {
+  #GeometryBase _geometry
+  #Material[] _materials
+}
+
 ' core
 class Scene3D
 class View3D
@@ -61,10 +91,18 @@ class Entity {
   +name
   +instanceID
   +Entity[] entityChildren
+  +Transform transform
+  +RenderNode renderNode
+  +Map<any, IComponent> components
 
   +addChild()
 }
-class Object3D
+class Object3D {
+  +addComponent()
+  +removeComponent()
+  +getComponents()
+}
+
 
 
 ' loader
@@ -110,6 +148,12 @@ RendererJob <|-- ForwardRenderJob
 CEventDispatcher <|-- RendererBase
 RendererBase .. PassType
 RenderMap *-- RendererBase
+
+IComponent *-- Object3D
+IComponent *-- Transform
+IComponent <|-- ComponentBase
+ComponentBase <|-- Transform
+ComponentBase <|-- RenderNode
 
 CEventDispatcher <|-- Entity
 Entity <|-- Object3D
