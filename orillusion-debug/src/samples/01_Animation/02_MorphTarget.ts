@@ -36,7 +36,7 @@ class Sample_MorphTarget {
   gui: dat.GUI;
   model: Object3D;
   // temp values
-  _mat: Matrix4;
+  _mat4: Matrix4;
   _quat: Quaternion;
   _quat2: Quaternion;
 
@@ -96,24 +96,126 @@ class Sample_MorphTarget {
     this.targetRenderers = this.blendShapeComponent.cloneMorphRenderers();
 
     // bind influenceData to gui
+    for (let key in this.targetRenderers) {
+      this.influenceData[key] = 0.0;
+      folder.add(this.influenceData, key, 0, 1, 0.01).onChange((v) => {
+        this.influenceData[key] = v;
+        let list = this.blendShapeComponent.getMorphRenderersByKey(key);
+        for (let renderer of list) {
+          renderer.setMorphInfluence(key, v);
+        }
+        console.log(this.targetRenderers);
+      });
+    }
+
+    // add capture camera button
+    this.gui
+      .add(
+        {
+          capture: async () => {
+            await this.setupCapture();
+            await this.setupPredict();
+            await this.detectFace();
+          },
+        },
+        "capture"
+      )
+      .name("Capture from Camera");
+    folder.open();
   }
 
   // create a video stream from camera
-  async setupCapture() {}
+  async setupCapture() {
+    try {
+      console.log("ttt");
+      this.htmlVideo = document.createElement("video");
+      this.htmlVideo.height = 200;
+      this.htmlVideo.setAttribute(
+        "style",
+        "position:fixed; left:0; bottom:0; z-index:10"
+      );
+      document.body.appendChild(this.htmlVideo);
+
+      let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      this.htmlVideo.srcObject = stream;
+      this.htmlVideo.play();
+    } catch (error) {
+      console.error("Error accessing the camera:", error);
+    }
+  }
 
   // load mediapipe model
-  async setupPredict() {}
+  async setupPredict() {
+    this.filesetResolver = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+    );
+    this.faceLandmarker = await FaceLandmarker.createFromOptions(
+      this.filesetResolver,
+      {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          delegate: "GPU",
+        },
+        outputFaceBlendshapes: true,
+        outputFacialTransformationMatrixes: true,
+        runningMode: "VIDEO",
+        numFaces: 1,
+      }
+    );
+
+    // temp vals
+    this._mat4 = new Matrix4();
+    this._quat = new Quaternion();
+    this._quat2 = new Quaternion();
+  }
 
   // detect face
-  async detectFace() {}
+  async detectFace() {
+    if (!this.faceLandmarker) return;
+    const results = await this.faceLandmarker.detectForVideo(
+      this.htmlVideo,
+      Date.now()
+    );
+    this.face2Transform(results.facialTransformationMatrixes);
+    this.face2Morph(results.faceBlendshapes);
+  }
 
   // morph target
-  async face2Morph(faceBlendshapes: any[]) {}
+  async face2Morph(faceBlendshapes: any[]) {
+    if (faceBlendshapes.length > 0) {
+      faceBlendshapes = faceBlendshapes[0].categories;
+      let Lefteye = faceBlendshapes[9].score; // eyeBlinkLeft
+      let Righteye = faceBlendshapes[10].score; // eyeBlinkRight
+      let Mouth = faceBlendshapes[25].score; // jawOpen
+
+      // multiply scale to make it more visible
+      this.influenceData["mouth"] = Mouth * 2;
+      this.influenceData["leftEye"] = Lefteye * 2;
+      this.influenceData["rightEye"] = Righteye * 2;
+      this.influenceData["tongue"] = Mouth * 2;
+
+      // set morph
+      for (let key in this.targetRenderers) {
+        let list = this.blendShapeComponent.getMorphRenderersByKey(key);
+        list[0].setMorphInfluence(key, this.influenceData[key]);
+      }
+      // update gui
+      this.gui.updateDisplay();
+    }
+  }
 
   // apply transform
-  async face2Transform(
-    facialTransformationMatrixes: [{ data: Float32Array }]
-  ) {}
+  async face2Transform(facialTransformationMatrixes: [{ data: Float32Array }]) {
+    if (facialTransformationMatrixes[0]) {
+      this._mat4.rawData.set(facialTransformationMatrixes[0].data);
+      this._quat.fromMatrix(this._mat4);
+      // Interpolate between quat1 and quat2, make movment smoother
+      this._quat2.lerp(this._quat2, this._quat, 0.45);
+      // then update model quaternion
+      this.model.localQuaternion = this._quat2;
+    }
+  }
 }
 
 new Sample_MorphTarget().run();
