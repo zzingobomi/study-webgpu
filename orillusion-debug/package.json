@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.14",
     "dat.gui": "^0.7.9"
   },
   "devDependencies": {
