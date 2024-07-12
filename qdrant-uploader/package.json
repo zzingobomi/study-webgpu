@@ -1,0 +1,25 @@
+{
+  "name": "qdrant-uploader",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build --config vite.config.github.js",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@orillusion/core": "^0.7.2",
+    "@orillusion/stats": "^0.2.2",
+    "@qdrant/js-client-rest": "^1.10.0",
+    "dat.gui": "^0.7.9"
+  },
+  "devDependencies": {
+    "@types/dat.gui": "^0.7.13",
+    "typescript": "^5.4.5",
+    "vite": "^4.3.5"
+  }
+}
