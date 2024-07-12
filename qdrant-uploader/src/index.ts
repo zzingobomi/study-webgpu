@@ -4,10 +4,14 @@ import {
   CameraUtil,
   DirectLight,
   Engine3D,
+  GeometryBase,
   HoverCameraController,
   KelvinUtil,
+  MeshRenderer,
   Object3D,
   Scene3D,
+  VertexAttribute,
+  VertexAttributeName,
   View3D,
 } from "@orillusion/core";
 import { Stats } from "@orillusion/stats";
@@ -56,220 +60,276 @@ class QdrantUploader {
     const objHref = "/chair.obj";
     const response = await fetch(objHref);
     const text = await response.text();
-    const obj = this.parseObj(text);
-    console.log(obj);
+    const obj = this.parserOBJ(text);
+    // console.log(obj);
+
+    // let root = new Object3D();
+    // for (const geoData of obj.geometries) {
+    //   let geo: GeometryBase = new GeometryBase();
+    //   geo.setAttribute(
+    //     VertexAttributeName.position,
+    //     new Float32Array(geoData.data.position)
+    //   );
+    //   geo.setAttribute(
+    //     VertexAttributeName.normal,
+    //     new Float32Array(geoData.data.normal)
+    //   );
+    //   geo.setAttribute(
+    //     VertexAttributeName.uv,
+    //     new Float32Array(geoData.data.texcoord)
+    //   );
+    //   geo.setAttribute(
+    //     VertexAttributeName.TEXCOORD_1,
+    //     new Float32Array(geoData.data.texcoord)
+    //   );
+
+    //   let obj = new Object3D();
+    //   let mr = obj.addComponent(MeshRenderer);
+    //   mr.geometry = geo;
+    //   root.addChild(obj);
+    // }
+
+    // this.scene.addChild(root);
   }
 
   private update() {}
 
-  public parseObj(text: string) {
-    // 인덱스는 기본값이 1이므로 0번째 데이터만 입력하겠습니다.
-    const objPositions = [[0, 0, 0]];
-    const objTexcoords = [[0, 0]];
-    const objNormals = [[0, 0, 0]];
-    const objColors = [[0, 0, 0]];
-
-    const objVertexData = [objPositions, objTexcoords, objNormals, objColors];
-
-    let vertexData: [number[], number[], number[], number[]] = [
-      [], // positions
-      [], // texcoords
-      [], // normals
-      [], // colors
-    ];
-
-    const materialLibs = [];
-    const geometries = [];
-    let geometry;
-    let groups = ["default"];
-    let material = "default";
-    let object = "default";
-
-    const noop = () => {};
-
-    function newGeometry() {
-      // 기존 지오메트리가 있고 비어 있지 않은 경우 새 지오메트리를 시작합니다.
-      if (geometry && geometry.data.position.length) {
-        geometry = undefined;
-      }
+  private async parserOBJ(text: string) {
+    let str = text.split("\r\n");
+    for (let i = 0; i < str.length; i++) {
+      const element = str[i];
+      this.parserLine(element);
     }
-
-    function setGeometry() {
-      if (!geometry) {
-        const position = [];
-        const texcoord = [];
-        const normal = [];
-        const color = [];
-        vertexData = [position, texcoord, normal, color];
-        geometry = {
-          object,
-          groups,
-          material,
-          data: {
-            position,
-            texcoord,
-            normal,
-            color,
-          },
-        };
-        geometries.push(geometry);
-      }
-    }
-
-    function addVertex(vert: string) {
-      const ptn = vert.split("/");
-      ptn.forEach((objIndexStr, i) => {
-        if (!objIndexStr) {
-          return;
-        }
-        const objIndex = parseInt(objIndexStr);
-        const index = objIndex + (objIndex >= 0 ? 0 : objVertexData[i].length);
-        vertexData[i].push(...objVertexData[i][index]);
-        // 이것이 위치 인덱스(인덱스 0)이고 정점 색상을 파싱한 경우 정점 색상을 정점 색상 데이터에 복사합니다.
-        if (i === 0 && objColors.length > 1) {
-          geometry.data.color.push(...objColors[index]);
-        }
-      });
-    }
-
-    const keywords = {
-      v: function (parts: string[]) {
-        // 여기에 값이 3개 이상이면 버텍스 색입니다.
-        if (parts.length > 3) {
-          objPositions.push(parts.slice(0, 3).map(parseFloat));
-          objColors.push(parts.slice(3).map(parseFloat));
-        } else {
-          objPositions.push(parts.map(parseFloat));
-        }
-      },
-      vn: function (parts: string[]) {
-        objNormals.push(parts.map(parseFloat));
-      },
-      vt: function (parts: string[]) {
-        objTexcoords.push(parts.map(parseFloat));
-      },
-      f: function (parts: string[]) {
-        setGeometry();
-        const numTriangles = parts.length - 2;
-        for (let tri = 0; tri < numTriangles; ++tri) {
-          addVertex(parts[0]);
-          addVertex(parts[tri + 1]);
-          addVertex(parts[tri + 2]);
-        }
-      },
-      s: noop,
-      mtllib: function (parts: string[], unparsedArgs: string) {
-        // 사양에 따르면 여기에 여러 파일 이름이 있을 수 있지만 단일 파일 이름에 공백이 있는 경우가 많습니다.
-        materialLibs.push(unparsedArgs);
-      },
-      usemtl: function (parts: string[], unparsedArgs: string) {
-        material = unparsedArgs;
-        newGeometry();
-      },
-      g: function (parts: string[]) {
-        groups = parts;
-        newGeometry();
-      },
-      o: function (parts: string[], unparsedArgs: string) {
-        object = unparsedArgs;
-        newGeometry();
-      },
-    };
-
-    const keywordRE = /(\w*)(?: )*(.*)/;
-    const lines = text.split("\n");
-    for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
-      const line = lines[lineNo].trim();
-      if (line === "" || line.startsWith("#")) {
-        continue;
-      }
-      const m = keywordRE.exec(line);
-      if (!m) {
-        continue;
-      }
-      const [, keyword, unparsedArgs] = m;
-      const parts = line.split(/\s+/).slice(1);
-      const handler = keywords[keyword];
-      if (!handler) {
-        console.warn(`unhandled keyword: ${keyword}`);
-        continue;
-      }
-      handler(parts, unparsedArgs);
-    }
-
-    // remove any arrays that have no entries.
-    for (const geometry of geometries) {
-      geometry.data = Object.fromEntries(
-        Object.entries(geometry.data).filter(
-          ([, array]) => (array as any).length > 0
-        )
-      );
-    }
-
-    return {
-      geometries,
-      materialLibs,
-    };
   }
 
-  public parseMTL(text: string) {
-    const materials = {};
-    let material;
+  private parserLine(line: string) {
+    if (line === "" || line.startsWith("#")) return;
 
-    const keywords = {
-      newmtl: function (parts: string[], unparsedArgs: string) {
-        material = {};
-        materials[unparsedArgs] = material;
-      },
-      Ns: function (parts: string[]) {
-        material.shininess = parseFloat(parts[0]);
-      },
-      Ka: function (parts: string[]) {
-        material.ambient = parts.map(parseFloat);
-      },
-      Kd: function (parts: string[]) {
-        material.diffuse = parts.map(parseFloat);
-      },
-      Ks: function (parts: string[]) {
-        material.specular = parts.map(parseFloat);
-      },
-      Ke: function (parts: string[]) {
-        material.emissive = parts.map(parseFloat);
-      },
-      Ni: function (parts: string[]) {
-        material.opticalDensity = parseFloat(parts[0]);
-      },
-      d: function (parts: string[]) {
-        material.opacity = parseFloat(parts[0]);
-      },
-      illum: function (parts: string[]) {
-        material.illum = parseInt(parts[0]);
-      },
-    };
+    const splitedLine = line.split(/\s+/);
 
-    const keywordRE = /(\w*)(?: )*(.*)/;
-    const lines = text.split("\n");
-    for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
-      const line = lines[lineNo].trim();
-      if (line === "" || line.startsWith("#")) {
-        continue;
-      }
-      const m = keywordRE.exec(line);
-      if (!m) {
-        continue;
-      }
-      const [, keyword, unparsedArgs] = m;
-      const parts = line.split(/\s+/).slice(1);
-      const handler = keywords[keyword];
-      if (!handler) {
-        console.warn("unhandled keyword:", keyword);
-        continue;
-      }
-      handler(parts, unparsedArgs);
+    if (splitedLine[0] === "v") {
+      console.log("v");
+    } else if (splitedLine[0] === "vt") {
+      console.log("vt");
+    } else if (splitedLine[0] === "vn") {
+      console.log("vn");
+    } else if (splitedLine[0] === "f") {
+      console.log("f");
+    } else if (splitedLine[0] === "usemtl") {
+      console.log("usemtl");
+    } else if (splitedLine[0] === `mtllib`) {
+      console.log("mtllib");
     }
-
-    return materials;
   }
+
+  // public parseObj(text: string) {
+  //   // 인덱스는 기본값이 1이므로 0번째 데이터만 입력하겠습니다.
+  //   const objPositions = [[0, 0, 0]];
+  //   const objTexcoords = [[0, 0]];
+  //   const objNormals = [[0, 0, 0]];
+  //   const objColors = [[0, 0, 0]];
+
+  //   const objVertexData = [objPositions, objTexcoords, objNormals, objColors];
+
+  //   let vertexData: [number[], number[], number[], number[]] = [
+  //     [], // positions
+  //     [], // texcoords
+  //     [], // normals
+  //     [], // colors
+  //   ];
+
+  //   const materialLibs = [];
+  //   const geometries = [];
+  //   let geometry;
+  //   let groups = ["default"];
+  //   let material = "default";
+  //   let object = "default";
+
+  //   const noop = () => {};
+
+  //   function newGeometry() {
+  //     // 기존 지오메트리가 있고 비어 있지 않은 경우 새 지오메트리를 시작합니다.
+  //     if (geometry && geometry.data.position.length) {
+  //       geometry = undefined;
+  //     }
+  //   }
+
+  //   function setGeometry() {
+  //     if (!geometry) {
+  //       const position = [];
+  //       const texcoord = [];
+  //       const normal = [];
+  //       const color = [];
+  //       vertexData = [position, texcoord, normal, color];
+  //       geometry = {
+  //         object,
+  //         groups,
+  //         material,
+  //         data: {
+  //           position,
+  //           texcoord,
+  //           normal,
+  //           color,
+  //         },
+  //       };
+  //       geometries.push(geometry);
+  //     }
+  //   }
+
+  //   function addVertex(vert: string) {
+  //     const ptn = vert.split("/");
+  //     ptn.forEach((objIndexStr, i) => {
+  //       if (!objIndexStr) {
+  //         return;
+  //       }
+  //       const objIndex = parseInt(objIndexStr);
+  //       const index = objIndex + (objIndex >= 0 ? 0 : objVertexData[i].length);
+  //       vertexData[i].push(...objVertexData[i][index]);
+  //       // 이것이 위치 인덱스(인덱스 0)이고 정점 색상을 파싱한 경우 정점 색상을 정점 색상 데이터에 복사합니다.
+  //       if (i === 0 && objColors.length > 1) {
+  //         geometry.data.color.push(...objColors[index]);
+  //       }
+  //     });
+  //   }
+
+  //   const keywords = {
+  //     v: function (parts: string[]) {
+  //       // 여기에 값이 3개 이상이면 버텍스 색입니다.
+  //       if (parts.length > 3) {
+  //         objPositions.push(parts.slice(0, 3).map(parseFloat));
+  //         objColors.push(parts.slice(3).map(parseFloat));
+  //       } else {
+  //         objPositions.push(parts.map(parseFloat));
+  //       }
+  //     },
+  //     vn: function (parts: string[]) {
+  //       objNormals.push(parts.map(parseFloat));
+  //     },
+  //     vt: function (parts: string[]) {
+  //       objTexcoords.push(parts.map(parseFloat));
+  //     },
+  //     f: function (parts: string[]) {
+  //       setGeometry();
+  //       const numTriangles = parts.length - 2;
+  //       for (let tri = 0; tri < numTriangles; ++tri) {
+  //         addVertex(parts[0]);
+  //         addVertex(parts[tri + 1]);
+  //         addVertex(parts[tri + 2]);
+  //       }
+  //     },
+  //     s: noop,
+  //     mtllib: function (parts: string[], unparsedArgs: string) {
+  //       // 사양에 따르면 여기에 여러 파일 이름이 있을 수 있지만 단일 파일 이름에 공백이 있는 경우가 많습니다.
+  //       materialLibs.push(unparsedArgs);
+  //     },
+  //     usemtl: function (parts: string[], unparsedArgs: string) {
+  //       material = unparsedArgs;
+  //       newGeometry();
+  //     },
+  //     g: function (parts: string[]) {
+  //       groups = parts;
+  //       newGeometry();
+  //     },
+  //     o: function (parts: string[], unparsedArgs: string) {
+  //       object = unparsedArgs;
+  //       newGeometry();
+  //     },
+  //   };
+
+  //   const keywordRE = /(\w*)(?: )*(.*)/;
+  //   const lines = text.split("\n");
+  //   for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
+  //     const line = lines[lineNo].trim();
+  //     if (line === "" || line.startsWith("#")) {
+  //       continue;
+  //     }
+  //     const m = keywordRE.exec(line);
+  //     if (!m) {
+  //       continue;
+  //     }
+  //     const [, keyword, unparsedArgs] = m;
+  //     const parts = line.split(/\s+/).slice(1);
+  //     const handler = keywords[keyword];
+  //     if (!handler) {
+  //       console.warn(`unhandled keyword: ${keyword}`);
+  //       continue;
+  //     }
+  //     handler(parts, unparsedArgs);
+  //   }
+
+  //   // remove any arrays that have no entries.
+  //   for (const geometry of geometries) {
+  //     geometry.data = Object.fromEntries(
+  //       Object.entries(geometry.data).filter(
+  //         ([, array]) => (array as any).length > 0
+  //       )
+  //     );
+  //   }
+
+  //   return {
+  //     geometries,
+  //     materialLibs,
+  //   };
+  // }
+
+  // public parseMTL(text: string) {
+  //   const materials = {};
+  //   let material;
+
+  //   const keywords = {
+  //     newmtl: function (parts: string[], unparsedArgs: string) {
+  //       material = {};
+  //       materials[unparsedArgs] = material;
+  //     },
+  //     Ns: function (parts: string[]) {
+  //       material.shininess = parseFloat(parts[0]);
+  //     },
+  //     Ka: function (parts: string[]) {
+  //       material.ambient = parts.map(parseFloat);
+  //     },
+  //     Kd: function (parts: string[]) {
+  //       material.diffuse = parts.map(parseFloat);
+  //     },
+  //     Ks: function (parts: string[]) {
+  //       material.specular = parts.map(parseFloat);
+  //     },
+  //     Ke: function (parts: string[]) {
+  //       material.emissive = parts.map(parseFloat);
+  //     },
+  //     Ni: function (parts: string[]) {
+  //       material.opticalDensity = parseFloat(parts[0]);
+  //     },
+  //     d: function (parts: string[]) {
+  //       material.opacity = parseFloat(parts[0]);
+  //     },
+  //     illum: function (parts: string[]) {
+  //       material.illum = parseInt(parts[0]);
+  //     },
+  //   };
+
+  //   const keywordRE = /(\w*)(?: )*(.*)/;
+  //   const lines = text.split("\n");
+  //   for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
+  //     const line = lines[lineNo].trim();
+  //     if (line === "" || line.startsWith("#")) {
+  //       continue;
+  //     }
+  //     const m = keywordRE.exec(line);
+  //     if (!m) {
+  //       continue;
+  //     }
+  //     const [, keyword, unparsedArgs] = m;
+  //     const parts = line.split(/\s+/).slice(1);
+  //     const handler = keywords[keyword];
+  //     if (!handler) {
+  //       console.warn("unhandled keyword:", keyword);
+  //       continue;
+  //     }
+  //     handler(parts, unparsedArgs);
+  //   }
+
+  //   return materials;
+  // }
 }
 
 new QdrantUploader().run();

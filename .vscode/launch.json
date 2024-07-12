@@ -27,6 +27,14 @@
       "url": "http://localhost:7300",
       "webRoot": "${workspaceFolder}/orillusion-debug/src",
       "sourceMaps": true
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "qdrant-uploader",
+      "url": "http://localhost:7400",
+      "webRoot": "${workspaceFolder}/qdrant-uploader/src",
+      "sourceMaps": true
     }
   ]
 }
