@@ -17,6 +17,19 @@ import {
 import { Stats } from "@orillusion/stats";
 import { QdrantClient } from "@qdrant/js-client-rest";
 
+type GeometryData = {
+  name: string;
+
+  vertex_arr?: number[];
+  normal_arr?: number[];
+  uv_arr?: number[];
+  indeice_arr?: number[];
+  index?: number;
+
+  source_mat: string;
+  source_faces: Face[];
+};
+
 type Face = {
   indices: string[];
   texture: string[];
@@ -27,9 +40,14 @@ class QdrantUploader {
   scene: Scene3D;
   lightObj: Object3D;
 
-  private source_vertices: number[][];
-  private source_normals: number[][];
-  private source_textureCoords: number[][];
+  private source_vertices: number[][] = [];
+  private source_normals: number[][] = [];
+  private source_textureCoords: number[][] = [];
+
+  private geometries: { [name: string]: GeometryData } = {};
+  private activeGeo: GeometryData;
+
+  private mtlUrl: string;
 
   async run() {
     await Engine3D.init({ beforeRender: () => this.update() });
@@ -67,45 +85,19 @@ class QdrantUploader {
     this.scene.addChild(lightObj3D);
 
     // add OBJ
-    const objHref = "/chair.obj";
+    //const objHref = "/chair.obj";
+    const objHref = "/box.obj";
     const response = await fetch(objHref);
     const text = await response.text();
-    const obj = this.parserOBJ(text);
-    // console.log(obj);
+    await this.parserOBJ(text);
 
-    // let root = new Object3D();
-    // for (const geoData of obj.geometries) {
-    //   let geo: GeometryBase = new GeometryBase();
-    //   geo.setAttribute(
-    //     VertexAttributeName.position,
-    //     new Float32Array(geoData.data.position)
-    //   );
-    //   geo.setAttribute(
-    //     VertexAttributeName.normal,
-    //     new Float32Array(geoData.data.normal)
-    //   );
-    //   geo.setAttribute(
-    //     VertexAttributeName.uv,
-    //     new Float32Array(geoData.data.texcoord)
-    //   );
-    //   geo.setAttribute(
-    //     VertexAttributeName.TEXCOORD_1,
-    //     new Float32Array(geoData.data.texcoord)
-    //   );
-
-    //   let obj = new Object3D();
-    //   let mr = obj.addComponent(MeshRenderer);
-    //   mr.geometry = geo;
-    //   root.addChild(obj);
-    // }
-
-    // this.scene.addChild(root);
+    await this.parserMesh();
   }
 
   private update() {}
 
   private async parserOBJ(text: string) {
-    let str = text.split("\r\n");
+    let str = text.split("\n");
     for (let i = 0; i < str.length; i++) {
       const element = str[i];
       this.parserLine(element);
@@ -118,7 +110,13 @@ class QdrantUploader {
     const splitedLine = line.split(/\s+/);
 
     if (splitedLine[0] === "o") {
-      console.log("o");
+      const geoName = splitedLine[1];
+      this.activeGeo = {
+        name: geoName,
+        source_mat: ``,
+        source_faces: [],
+      };
+      this.geometries[geoName] = this.activeGeo;
     } else if (splitedLine[0] === "v") {
       const vertex = [
         Number(splitedLine[1]),
@@ -172,11 +170,124 @@ class QdrantUploader {
           }
         }
       }
+
+      this.activeGeo.source_faces.push(face);
     } else if (splitedLine[0] === "usemtl") {
-      console.log("usemtl");
+      this.activeGeo.source_mat = splitedLine[1];
     } else if (splitedLine[0] === `mtllib`) {
-      console.log("mtllib");
+      this.mtlUrl = splitedLine[1];
     }
+  }
+
+  private async parserMesh() {
+    for (const key in this.geometries) {
+      const geoData = this.geometries[key];
+
+      geoData.vertex_arr = [];
+      geoData.normal_arr = [];
+      geoData.uv_arr = [];
+      geoData.indeice_arr = [];
+
+      let index = 0;
+      for (let i = 0; i < geoData.source_faces.length; i++) {
+        const face = geoData.source_faces[i];
+
+        const f0 = parseInt(face.indices[0]) - 1;
+        const f1 = parseInt(face.indices[1]) - 1;
+        const f2 = parseInt(face.indices[2]) - 1;
+
+        const n0 = parseInt(face.normal[0]) - 1;
+        const n1 = parseInt(face.normal[1]) - 1;
+        const n2 = parseInt(face.normal[2]) - 1;
+
+        const u0 = parseInt(face.texture[0]) - 1;
+        const u1 = parseInt(face.texture[1]) - 1;
+        const u2 = parseInt(face.texture[2]) - 1;
+
+        this.applyVector3(f0, this.source_vertices, geoData.vertex_arr);
+        this.applyVector3(n0, this.source_normals, geoData.normal_arr);
+        this.applyVector2(u0, this.source_textureCoords, geoData.uv_arr);
+        geoData.indeice_arr[index] = index++;
+
+        this.applyVector3(f1, this.source_vertices, geoData.vertex_arr);
+        this.applyVector3(n1, this.source_normals, geoData.normal_arr);
+        this.applyVector2(u1, this.source_textureCoords, geoData.uv_arr);
+        geoData.indeice_arr[index] = index++;
+
+        this.applyVector3(f2, this.source_vertices, geoData.vertex_arr);
+        this.applyVector3(n2, this.source_normals, geoData.normal_arr);
+        this.applyVector2(u2, this.source_textureCoords, geoData.uv_arr);
+        geoData.indeice_arr[index] = index++;
+
+        if (face.indices.length > 3) {
+          let f3 = parseInt(face.indices[3]) - 1;
+          let n3 = parseInt(face.normal[3]) - 1;
+          let u3 = parseInt(face.texture[3]) - 1;
+          this.applyVector3(f0, this.source_vertices, geoData.vertex_arr);
+          this.applyVector3(n0, this.source_normals, geoData.normal_arr);
+          this.applyVector2(u0, this.source_textureCoords, geoData.uv_arr);
+          geoData.indeice_arr[index] = index++;
+
+          this.applyVector3(f2, this.source_vertices, geoData.vertex_arr);
+          this.applyVector3(n2, this.source_normals, geoData.normal_arr);
+          this.applyVector2(u2, this.source_textureCoords, geoData.uv_arr);
+          geoData.indeice_arr[index] = index++;
+
+          this.applyVector3(f3, this.source_vertices, geoData.vertex_arr);
+          this.applyVector3(n3, this.source_normals, geoData.normal_arr);
+          this.applyVector2(u3, this.source_textureCoords, geoData.uv_arr);
+          geoData.indeice_arr[index] = index++;
+        }
+      }
+
+      const root = new Object3D();
+      for (const key in this.geometries) {
+        const geoData = this.geometries[key];
+        const geo: GeometryBase = new GeometryBase();
+
+        geo.setIndices(new Uint32Array(geoData.indeice_arr));
+        geo.setAttribute(
+          VertexAttributeName.position,
+          new Float32Array(geoData.vertex_arr)
+        );
+        geo.setAttribute(
+          VertexAttributeName.normal,
+          new Float32Array(geoData.normal_arr)
+        );
+        geo.setAttribute(
+          VertexAttributeName.uv,
+          new Float32Array(geoData.uv_arr)
+        );
+        geo.setAttribute(
+          VertexAttributeName.TEXCOORD_1,
+          new Float32Array(geoData.uv_arr)
+        );
+
+        const obj = new Object3D();
+        const mr = obj.addComponent(MeshRenderer);
+        mr.geometry = geo;
+        //mr.material = mat;
+        root.addChild(obj);
+      }
+
+      this.scene.addChild(root);
+    }
+  }
+
+  private applyVector2(fi: number, sourceData: number[][], destData: number[]) {
+    if (sourceData[fi] && sourceData[fi].length > 0) {
+      destData.push(sourceData[fi][0]);
+      destData.push(sourceData[fi][1]);
+    } else {
+      destData.push(0);
+      destData.push(0);
+    }
+  }
+
+  private applyVector3(fi: number, sourceData: number[][], destData: number[]) {
+    destData.push(sourceData[fi][0]);
+    destData.push(sourceData[fi][1]);
+    destData.push(sourceData[fi][2]);
   }
 
   // public parseObj(text: string) {
