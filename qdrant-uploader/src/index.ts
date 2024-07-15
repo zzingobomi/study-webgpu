@@ -11,12 +11,31 @@ import {
   MeshRenderer,
   Object3D,
   Scene3D,
+  StringUtil,
   VertexAttribute,
   VertexAttributeName,
   View3D,
 } from "@orillusion/core";
 import { Stats } from "@orillusion/stats";
 import { QdrantClient } from "@qdrant/js-client-rest";
+
+type MatData = {
+  name?: string;
+  Kd?: string[];
+  Ks?: string[];
+  Tr?: string;
+  d?: string[];
+  Tf?: string[];
+  Pr?: string;
+  Pm?: string;
+  Pc?: string;
+  Pcr?: string;
+  Ni?: string;
+  Kr?: string[];
+  illum?: string;
+  map_Kd?: string;
+  textures?: string[];
+};
 
 type GeometryData = {
   name: string;
@@ -48,7 +67,7 @@ class QdrantUploader {
   private geometries: { [name: string]: GeometryData } = {};
   private activeGeo: GeometryData;
 
-  private mtlUrl: string;
+  public matLibs: { [name: string]: MatData } = {};
 
   async run() {
     await Engine3D.init({ beforeRender: () => this.update() });
@@ -85,12 +104,19 @@ class QdrantUploader {
     lightObj3D.rotationZ = 5.58;
     this.scene.addChild(lightObj3D);
 
-    // add OBJ
+    // parse OBJ
     const objHref = "/Low_Poly_Forest.obj";
-    const response = await fetch(objHref);
-    const text = await response.text();
-    await this.parserOBJ(text);
+    const objResponse = await fetch(objHref);
+    const objText = await objResponse.text();
+    await this.parserOBJ(objText);
 
+    // parse MTL
+    const mltHref = "/Low_Poly_Forest.mtl";
+    const mtlResponse = await fetch(mltHref);
+    const mtlText = await mtlResponse.text();
+    await this.parserMTL(mtlText);
+
+    // obj to Object3D
     await this.parserMesh();
   }
 
@@ -175,7 +201,6 @@ class QdrantUploader {
     } else if (splitedLine[0] === "usemtl") {
       this.activeGeo.source_mat = splitedLine[1];
     } else if (splitedLine[0] === `mtllib`) {
-      this.mtlUrl = splitedLine[1];
     }
   }
 
@@ -271,7 +296,12 @@ class QdrantUploader {
         topology: 0,
       });
 
+      // TODO: 메테리얼이 왜 적용이 안되나?
       const mat = new LitMaterial();
+      const matData = this.matLibs[geoData.source_mat];
+      mat.baseMap = Engine3D.res.getTexture(
+        StringUtil.normalizePath("/" + matData.map_Kd)
+      );
 
       const obj = new Object3D();
       const mr = obj.addComponent(MeshRenderer);
@@ -297,6 +327,58 @@ class QdrantUploader {
     destData.push(sourceData[fi][0]);
     destData.push(sourceData[fi][1]);
     destData.push(sourceData[fi][2]);
+  }
+
+  private async parserMTL(text: string) {
+    let mat: MatData;
+
+    let str = text.split("\n");
+    for (let i = 0; i < str.length; i++) {
+      let line = str[i];
+      var commentStart = line.indexOf("#");
+      if (commentStart != -1) {
+        line = line.substring(0, commentStart);
+      }
+      line = line.trim();
+      var splitedLine = line.split(/\s+/);
+      if (splitedLine[0] === "newmtl") {
+        mat = { name: splitedLine[1] };
+        this.matLibs[splitedLine[1]] = mat;
+      } else {
+        if (splitedLine[0].indexOf(`map_`) != -1) {
+          mat[splitedLine[0]] = splitedLine[1];
+          if (!mat.textures) {
+            mat.textures = [splitedLine[splitedLine.length - 1]];
+          }
+          mat.textures.push(splitedLine[splitedLine.length - 1]);
+        } else if (splitedLine.length == 2) {
+          mat[splitedLine[0]] = Number(splitedLine[1]);
+        } else if (splitedLine.length == 3) {
+          mat[splitedLine[0]] = [
+            Number(splitedLine[1]),
+            Number(splitedLine[2]),
+          ];
+        } else if (splitedLine.length == 4) {
+          mat[splitedLine[0]] = [
+            Number(splitedLine[1]),
+            Number(splitedLine[2]),
+            Number(splitedLine[3]),
+          ];
+        }
+      }
+    }
+
+    // for (const key in this.matLibs) {
+    //   const mat = this.matLibs[key];
+    //   if (mat.textures && mat.textures.length > 0) {
+    //     for (let i = 0; i < mat.textures.length; i++) {
+    //       const texUrl = StringUtil.normalizePath(
+    //         this.baseUrl + mat.textures[i]
+    //       );
+    //       await Engine3D.res.loadTexture(texUrl);
+    //     }
+    //   }
+    // }
   }
 }
 
