@@ -17,9 +17,19 @@ import {
 import { Stats } from "@orillusion/stats";
 import { QdrantClient } from "@qdrant/js-client-rest";
 
+type Face = {
+  indices: string[];
+  texture: string[];
+  normal: string[];
+};
+
 class QdrantUploader {
   scene: Scene3D;
   lightObj: Object3D;
+
+  private source_vertices: number[][];
+  private source_normals: number[][];
+  private source_textureCoords: number[][];
 
   async run() {
     await Engine3D.init({ beforeRender: () => this.update() });
@@ -107,14 +117,61 @@ class QdrantUploader {
 
     const splitedLine = line.split(/\s+/);
 
-    if (splitedLine[0] === "v") {
-      console.log("v");
+    if (splitedLine[0] === "o") {
+      console.log("o");
+    } else if (splitedLine[0] === "v") {
+      const vertex = [
+        Number(splitedLine[1]),
+        Number(splitedLine[2]),
+        Number(splitedLine[3]),
+        splitedLine[4] ? 1 : Number(splitedLine[4]),
+      ];
+      this.source_vertices.push(vertex);
     } else if (splitedLine[0] === "vt") {
-      console.log("vt");
+      const textureCoord = [
+        Number(splitedLine[1]),
+        Number(splitedLine[2]),
+        splitedLine[3] ? 1 : Number(splitedLine[3]),
+      ];
+      this.source_textureCoords.push(textureCoord);
     } else if (splitedLine[0] === "vn") {
-      console.log("vn");
+      const normal = [
+        Number(splitedLine[1]),
+        Number(splitedLine[2]),
+        Number(splitedLine[3]),
+      ];
+      this.source_normals.push(normal);
     } else if (splitedLine[0] === "f") {
-      console.log("f");
+      const face: Face = {
+        indices: [],
+        texture: [],
+        normal: [],
+      };
+
+      for (let i = 1; i < splitedLine.length; ++i) {
+        const dIndex = splitedLine[i].indexOf("//");
+        const splitedFaceIndices = splitedLine[i].split(/\W+/);
+
+        if (dIndex > 0) {
+          /*Vertex Normal Indices Without Texture Coordinate Indices*/
+          face.indices.push(splitedFaceIndices[0]);
+          face.normal.push(splitedFaceIndices[1]);
+        } else {
+          if (splitedFaceIndices.length === 1) {
+            /*Vertex Indices*/
+            face.indices.push(splitedFaceIndices[0]);
+          } else if (splitedFaceIndices.length === 2) {
+            /*Vertex Texture Coordinate Indices*/
+            face.indices.push(splitedFaceIndices[0]);
+            face.texture.push(splitedFaceIndices[1]);
+          } else if (splitedFaceIndices.length === 3) {
+            /*Vertex Normal Indices*/
+            face.indices.push(splitedFaceIndices[0]);
+            face.texture.push(splitedFaceIndices[1]);
+            face.normal.push(splitedFaceIndices[2]);
+          }
+        }
+      }
     } else if (splitedLine[0] === "usemtl") {
       console.log("usemtl");
     } else if (splitedLine[0] === `mtllib`) {
