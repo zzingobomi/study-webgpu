@@ -119,11 +119,11 @@ class QdrantUploader {
     await this.createScene();
     sky.relativeTransform = this.lightObj.transform;
 
-    // TODO: 결과값이 이상한듯..? 진짜 아주 간단한 obj 만들어야 하나....
-    //console.log(this.qdrantVectors);
-    //this.createCollection()
+    // TODO: 결과값이 내가 의도한대로 나왔는지 어떻게 시각적으로 확인할 수 있을까?
+    console.log(this.qdrantVectors);
+    //this.createCollection();
     //this.upsertVectors();
-    //this.runQuery();
+    this.runQuery();
   }
 
   private async createScene() {
@@ -139,16 +139,16 @@ class QdrantUploader {
     this.scene.addChild(lightObj3D);
 
     // parse OBJ
-    const objHref = "/Low_Poly_Forest.obj";
+    const objHref = "/test_obj.obj";
     const objResponse = await fetch(objHref);
     const objText = await objResponse.text();
     await this.parserOBJ(objText);
 
     // parse MTL
-    const mltHref = "/Low_Poly_Forest.mtl";
-    const mtlResponse = await fetch(mltHref);
-    const mtlText = await mtlResponse.text();
-    await this.parserMTL(mtlText);
+    //const mltHref = "/Low_Poly_Forest.mtl";
+    //const mtlResponse = await fetch(mltHref);
+    //const mtlText = await mtlResponse.text();
+    //await this.parserMTL(mtlText);
 
     // obj to Object3D
     await this.parserMesh();
@@ -412,10 +412,10 @@ class QdrantUploader {
 
       // TODO: 메테리얼이 왜 적용이 안되나?
       const mat = new LitMaterial();
-      const matData = this.matLibs[geoData.source_mat];
-      mat.baseMap = Engine3D.res.getTexture(
-        StringUtil.normalizePath("/" + matData.map_Kd)
-      );
+      // const matData = this.matLibs[geoData.source_mat];
+      // mat.baseMap = Engine3D.res.getTexture(
+      //   StringUtil.normalizePath("/" + matData.map_Kd)
+      // );
 
       const obj = new Object3D();
       const mr = obj.addComponent(MeshRenderer);
