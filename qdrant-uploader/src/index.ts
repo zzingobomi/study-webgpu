@@ -19,6 +19,26 @@ import {
 import { Stats } from "@orillusion/stats";
 import { QdrantClient } from "@qdrant/js-client-rest";
 
+interface QdrantPayload extends Record<string, unknown> {
+  vertex1: number[];
+  vertex2: number[];
+  vertex3: number[];
+
+  normal1: number[];
+  normal2: number[];
+  normal3: number[];
+
+  uv1: number[];
+  uv2: number[];
+  uv3: number[];
+}
+
+interface QdrantVector {
+  id: number;
+  vector: number[];
+  payload: QdrantPayload;
+}
+
 type MatData = {
   name?: string;
   Kd?: string[];
@@ -69,6 +89,14 @@ class QdrantUploader {
 
   public matLibs: { [name: string]: MatData } = {};
 
+  public qdrantVectors: QdrantVector[] = [];
+  private tempId = 1;
+
+  private client: QdrantClient = new QdrantClient({
+    host: "localhost",
+    port: 6333,
+  });
+
   async run() {
     await Engine3D.init({ beforeRender: () => this.update() });
 
@@ -90,6 +118,12 @@ class QdrantUploader {
 
     await this.createScene();
     sky.relativeTransform = this.lightObj.transform;
+
+    // TODO: 결과값이 이상한듯..? 진짜 아주 간단한 obj 만들어야 하나....
+    //console.log(this.qdrantVectors);
+    //this.createCollection()
+    //this.upsertVectors();
+    //this.runQuery();
   }
 
   private async createScene() {
@@ -245,25 +279,105 @@ class QdrantUploader {
         this.applyVector2(u2, this.source_textureCoords, geoData.uv_arr);
         geoData.indeice_arr[index] = index++;
 
-        if (face.indices.length > 3) {
-          let f3 = parseInt(face.indices[3]) - 1;
-          let n3 = parseInt(face.normal[3]) - 1;
-          let u3 = parseInt(face.texture[3]) - 1;
-          this.applyVector3(f0, this.source_vertices, geoData.vertex_arr);
-          this.applyVector3(n0, this.source_normals, geoData.normal_arr);
-          this.applyVector2(u0, this.source_textureCoords, geoData.uv_arr);
-          geoData.indeice_arr[index] = index++;
+        // 정점 정보 구하기
+        const vertex1 = {
+          x: this.source_vertices[f0][0],
+          y: this.source_vertices[f0][1],
+          z: this.source_vertices[f0][2],
+        };
+        const vertex2 = {
+          x: this.source_vertices[f1][0],
+          y: this.source_vertices[f1][1],
+          z: this.source_vertices[f1][2],
+        };
+        const vertex3 = {
+          x: this.source_vertices[f2][0],
+          y: this.source_vertices[f2][1],
+          z: this.source_vertices[f2][2],
+        };
 
-          this.applyVector3(f2, this.source_vertices, geoData.vertex_arr);
-          this.applyVector3(n2, this.source_normals, geoData.normal_arr);
-          this.applyVector2(u2, this.source_textureCoords, geoData.uv_arr);
-          geoData.indeice_arr[index] = index++;
+        // 무게중심 구하기
+        const centroid = {
+          x: (vertex1.x + vertex2.x + vertex3.x) / 3,
+          y: (vertex1.y + vertex2.y + vertex3.y) / 3,
+          z: (vertex1.z + vertex2.z + vertex3.z) / 3,
+        };
 
-          this.applyVector3(f3, this.source_vertices, geoData.vertex_arr);
-          this.applyVector3(n3, this.source_normals, geoData.normal_arr);
-          this.applyVector2(u3, this.source_textureCoords, geoData.uv_arr);
-          geoData.indeice_arr[index] = index++;
-        }
+        // normal 정보 구하기
+        const normal1 = {
+          x: this.source_normals[n0][0],
+          y: this.source_normals[n0][1],
+          z: this.source_normals[n0][2],
+        };
+        const normal2 = {
+          x: this.source_normals[n1][0],
+          y: this.source_normals[n1][1],
+          z: this.source_normals[n1][2],
+        };
+        const normal3 = {
+          x: this.source_normals[n2][0],
+          y: this.source_normals[n2][1],
+          z: this.source_normals[n2][2],
+        };
+
+        // uv 정보 구하기
+        const uv1 = {
+          x: this.source_textureCoords[u0][0],
+          y: this.source_textureCoords[u0][1],
+        };
+        const uv2 = {
+          x: this.source_textureCoords[u1][0],
+          y: this.source_textureCoords[u1][1],
+        };
+        const uv3 = {
+          x: this.source_textureCoords[u2][0],
+          y: this.source_textureCoords[u2][1],
+        };
+
+        // QdrandPayload 생성
+        const qPayload: QdrantPayload = {
+          vertex1: [vertex1.x, vertex1.y, vertex1.z],
+          vertex2: [vertex2.x, vertex2.y, vertex2.z],
+          vertex3: [vertex3.x, vertex3.y, vertex3.z],
+
+          normal1: [normal1.x, normal1.y, normal1.z],
+          normal2: [normal2.x, normal2.y, normal2.z],
+          normal3: [normal3.x, normal3.y, normal3.z],
+
+          uv1: [uv1.x, uv1.y],
+          uv2: [uv2.x, uv2.y],
+          uv3: [uv3.x, uv3.y],
+        };
+
+        // QdrantVector 생성
+        const qVector: QdrantVector = {
+          id: this.tempId++,
+          vector: [centroid.x, centroid.y, centroid.z],
+          payload: qPayload,
+        };
+        this.qdrantVectors.push(qVector);
+
+        // TODO: obj 파일에서 면이 다각형인 경우 어떻게 처리할 것인가?
+        // if (face.indices.length > 3) {
+        //   let f3 = parseInt(face.indices[3]) - 1;
+        //   let n3 = parseInt(face.normal[3]) - 1;
+        //   let u3 = parseInt(face.texture[3]) - 1;
+
+        //   this.applyVector3(f0, this.source_vertices, geoData.vertex_arr);
+        //   this.applyVector3(n0, this.source_normals, geoData.normal_arr);
+        //   this.applyVector2(u0, this.source_textureCoords, geoData.uv_arr);
+        //   geoData.indeice_arr[index] = index++;
+
+        //   this.applyVector3(f2, this.source_vertices, geoData.vertex_arr);
+        //   this.applyVector3(n2, this.source_normals, geoData.normal_arr);
+        //   this.applyVector2(u2, this.source_textureCoords, geoData.uv_arr);
+        //   geoData.indeice_arr[index] = index++;
+
+        //   this.applyVector3(f3, this.source_vertices, geoData.vertex_arr);
+        //   this.applyVector3(n3, this.source_normals, geoData.normal_arr);
+        //   this.applyVector2(u3, this.source_textureCoords, geoData.uv_arr);
+        //   geoData.indeice_arr[index] = index++;
+        // }
       }
 
       let geo: GeometryBase = new GeometryBase();
@@ -380,11 +494,36 @@ class QdrantUploader {
     //   }
     // }
   }
+
+  private async createCollection() {
+    await this.client.createCollection("test_collection", {
+      vectors: { size: 3, distance: "Euclid" },
+    });
+  }
+
+  private async upsertVectors() {
+    const operationInfo = await this.client.upsert("test_collection", {
+      wait: true,
+      points: this.qdrantVectors,
+    });
+  }
+
+  private async runQuery() {
+    const searchVector = [0, 0, 0];
+    const distanceThreshold = 1;
+
+    let searchResult = await this.client.search("test_collection", {
+      vector: searchVector,
+      score_threshold: distanceThreshold,
+      with_vector: true,
+      with_payload: true,
+    });
+
+    console.log(searchResult);
+  }
 }
 
 new QdrantUploader().run();
-
-// const client = new QdrantClient({ host: "localhost", port: 6333 });
 
 // const createCollection = async () => {
 //   await client.createCollection("test_collection", {
