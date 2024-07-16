@@ -18,6 +18,7 @@ import {
 } from "@orillusion/core";
 import { Stats } from "@orillusion/stats";
 import { QdrantClient } from "@qdrant/js-client-rest";
+import dat from "dat.gui";
 
 interface QdrantPayload extends Record<string, unknown> {
   vertex1: number[];
@@ -97,6 +98,16 @@ class QdrantUploader {
     port: 6333,
   });
 
+  private searchResults: any[] = [];
+
+  public playerX = 0;
+  public playerY = 0;
+  public playerZ = 0;
+
+  public playerSight = 1;
+
+  private landGeometry: GeometryBase = new GeometryBase();
+
   async run() {
     await Engine3D.init({ beforeRender: () => this.update() });
 
@@ -119,11 +130,38 @@ class QdrantUploader {
     await this.createScene();
     sky.relativeTransform = this.lightObj.transform;
 
-    // TODO: 결과값이 내가 의도한대로 나왔는지 어떻게 시각적으로 확인할 수 있을까?
-    console.log(this.qdrantVectors);
-    //this.createCollection();
-    //this.upsertVectors();
-    this.runQuery();
+    const create_collection = {
+      Create_Collection: async () => {
+        await this.client.createCollection("test_collection", {
+          vectors: { size: 3, distance: "Euclid" },
+        });
+      },
+    };
+
+    const upsert_vectors = {
+      Upsert_Vectors: async () => {
+        await this.client.upsert("test_collection", {
+          wait: true,
+          points: this.qdrantVectors,
+        });
+      },
+    };
+
+    const gui = new dat.GUI();
+    const qdrantFolder = gui.addFolder("Qdrant");
+    qdrantFolder.add(create_collection, "Create_Collection");
+    qdrantFolder.add(upsert_vectors, "Upsert_Vectors");
+    qdrantFolder.open();
+
+    const transformFolder = gui.addFolder("Transform");
+    transformFolder.add(this, "playerX", -100.0, 100.0, 0.01);
+    transformFolder.add(this, "playerY", -100.0, 100.0, 0.01);
+    transformFolder.add(this, "playerZ", -100.0, 100.0, 0.01);
+    transformFolder.open();
+
+    const sightFoler = gui.addFolder("Sight");
+    sightFoler.add(this, "playerSight", -100.0, 100.0, 0.01);
+    sightFoler.open();
   }
 
   private async createScene() {
@@ -139,7 +177,7 @@ class QdrantUploader {
     this.scene.addChild(lightObj3D);
 
     // parse OBJ
-    const objHref = "/test_obj.obj";
+    const objHref = "/test.obj";
     const objResponse = await fetch(objHref);
     const objText = await objResponse.text();
     await this.parserOBJ(objText);
@@ -152,9 +190,64 @@ class QdrantUploader {
 
     // obj to Object3D
     await this.parserMesh();
+
+    await this.runQuery();
+    this.qdrantMesh();
   }
 
-  private update() {}
+  private async update() {
+    // TODO: GUIGeometry 참고?
+    await this.runQuery();
+
+    let index = 0;
+    const vertex_arr = [];
+    const normal_arr = [];
+    const uv_arr = [];
+    const indeice_arr = [];
+    for (let i = 0; i < this.searchResults.length; i++) {
+      vertex_arr.push(...this.searchResults[i].payload.vertex1);
+      vertex_arr.push(...this.searchResults[i].payload.vertex2);
+      vertex_arr.push(...this.searchResults[i].payload.vertex3);
+      indeice_arr.push(index, index + 1, index + 2);
+      index += 3;
+    }
+    for (let i = 0; i < this.searchResults.length; i++) {
+      normal_arr.push(...this.searchResults[i].payload.normal1);
+      normal_arr.push(...this.searchResults[i].payload.normal2);
+      normal_arr.push(...this.searchResults[i].payload.normal3);
+    }
+    for (let i = 0; i < this.searchResults.length; i++) {
+      uv_arr.push(...this.searchResults[i].payload.uv1);
+      uv_arr.push(...this.searchResults[i].payload.uv2);
+      uv_arr.push(...this.searchResults[i].payload.uv3);
+    }
+
+    // 위에서까지는 제대로 데이터를 가져오는듯..
+    // GUIGeometry 참고?
+    // TODO: update 에서 계속 만들었다 지웠다 하는게 아닌 기존 geometry 를 업데이트 해야할텐데..
+    // this.landGeometry.subGeometries[0].lodLevels[0].indexCount =
+    //   indeice_arr.length;
+
+    const posAttrData = this.landGeometry.getAttribute(
+      VertexAttributeName.position
+    );
+    posAttrData.data = new Float32Array(vertex_arr);
+    this.landGeometry.vertexBuffer.upload(
+      VertexAttributeName.position,
+      posAttrData
+    );
+    const normalAttrData = this.landGeometry.getAttribute(
+      VertexAttributeName.normal
+    );
+    normalAttrData.data = new Float32Array(normal_arr);
+    this.landGeometry.vertexBuffer.upload(
+      VertexAttributeName.normal,
+      normalAttrData
+    );
+    const uvAttrData = this.landGeometry.getAttribute(VertexAttributeName.uv);
+    uvAttrData.data = new Float32Array(uv_arr);
+    this.landGeometry.vertexBuffer.upload(VertexAttributeName.uv, uvAttrData);
+  }
 
   private async parserOBJ(text: string) {
     let str = text.split("\n");
@@ -380,51 +473,51 @@ class QdrantUploader {
         // }
       }
 
-      let geo: GeometryBase = new GeometryBase();
+      // let geo: GeometryBase = new GeometryBase();
 
-      geo.setIndices(new Uint32Array(geoData.indeice_arr));
-      geo.setAttribute(
-        VertexAttributeName.position,
-        new Float32Array(geoData.vertex_arr)
-      );
-      geo.setAttribute(
-        VertexAttributeName.normal,
-        new Float32Array(geoData.normal_arr)
-      );
-      geo.setAttribute(
-        VertexAttributeName.uv,
-        new Float32Array(geoData.uv_arr)
-      );
-      geo.setAttribute(
-        VertexAttributeName.TEXCOORD_1,
-        new Float32Array(geoData.uv_arr)
-      );
-
-      geo.addSubGeometry({
-        indexStart: 0,
-        indexCount: geoData.indeice_arr.length,
-        vertexStart: 0,
-        vertexCount: 0,
-        firstStart: 0,
-        index: 0,
-        topology: 0,
-      });
-
-      // TODO: 메테리얼이 왜 적용이 안되나?
-      const mat = new LitMaterial();
-      // const matData = this.matLibs[geoData.source_mat];
-      // mat.baseMap = Engine3D.res.getTexture(
-      //   StringUtil.normalizePath("/" + matData.map_Kd)
+      // geo.setIndices(new Uint32Array(geoData.indeice_arr));
+      // geo.setAttribute(
+      //   VertexAttributeName.position,
+      //   new Float32Array(geoData.vertex_arr)
+      // );
+      // geo.setAttribute(
+      //   VertexAttributeName.normal,
+      //   new Float32Array(geoData.normal_arr)
+      // );
+      // geo.setAttribute(
+      //   VertexAttributeName.uv,
+      //   new Float32Array(geoData.uv_arr)
+      // );
+      // geo.setAttribute(
+      //   VertexAttributeName.TEXCOORD_1,
+      //   new Float32Array(geoData.uv_arr)
       // );
 
-      const obj = new Object3D();
-      const mr = obj.addComponent(MeshRenderer);
-      mr.geometry = geo;
-      mr.material = mat;
-      root.addChild(obj);
+      // geo.addSubGeometry({
+      //   indexStart: 0,
+      //   indexCount: geoData.indeice_arr.length,
+      //   vertexStart: 0,
+      //   vertexCount: 0,
+      //   firstStart: 0,
+      //   index: 0,
+      //   topology: 0,
+      // });
+
+      // // TODO: 메테리얼이 왜 적용이 안되나?
+      // const mat = new LitMaterial();
+      // // const matData = this.matLibs[geoData.source_mat];
+      // // mat.baseMap = Engine3D.res.getTexture(
+      // //   StringUtil.normalizePath("/" + matData.map_Kd)
+      // // );
+
+      // const obj = new Object3D();
+      // const mr = obj.addComponent(MeshRenderer);
+      // mr.geometry = geo;
+      // mr.material = mat;
+      // root.addChild(obj);
     }
 
-    this.scene.addChild(root);
+    //this.scene.addChild(root);
   }
 
   private applyVector2(fi: number, sourceData: number[][], destData: number[]) {
@@ -509,58 +602,90 @@ class QdrantUploader {
   }
 
   private async runQuery() {
-    const searchVector = [0, 0, 0];
-    const distanceThreshold = 1;
+    const searchVector = [this.playerX, this.playerY, this.playerZ];
+    const distanceThreshold = this.playerSight;
 
-    let searchResult = await this.client.search("test_collection", {
+    const searchResults = await this.client.search("test_collection", {
       vector: searchVector,
       score_threshold: distanceThreshold,
       with_vector: true,
       with_payload: true,
+      limit: Number.MAX_SAFE_INTEGER,
     });
 
-    console.log(searchResult);
+    this.searchResults = searchResults;
+  }
+
+  private async qdrantMesh() {
+    let index = 0;
+    const vertex_arr = [];
+    const normal_arr = [];
+    const uv_arr = [];
+    const indeice_arr = [];
+
+    for (let i = 0; i < this.searchResults.length; i++) {
+      vertex_arr.push(...this.searchResults[i].payload.vertex1);
+      vertex_arr.push(...this.searchResults[i].payload.vertex2);
+      vertex_arr.push(...this.searchResults[i].payload.vertex3);
+
+      indeice_arr.push(index, index + 1, index + 2);
+      index += 3;
+    }
+
+    for (let i = 0; i < this.searchResults.length; i++) {
+      normal_arr.push(...this.searchResults[i].payload.normal1);
+      normal_arr.push(...this.searchResults[i].payload.normal2);
+      normal_arr.push(...this.searchResults[i].payload.normal3);
+    }
+
+    for (let i = 0; i < this.searchResults.length; i++) {
+      uv_arr.push(...this.searchResults[i].payload.uv1);
+      uv_arr.push(...this.searchResults[i].payload.uv2);
+      uv_arr.push(...this.searchResults[i].payload.uv3);
+    }
+
+    this.landGeometry.setIndices(new Uint32Array(indeice_arr));
+    this.landGeometry.setAttribute(
+      VertexAttributeName.position,
+      new Float32Array(vertex_arr)
+    );
+    this.landGeometry.setAttribute(
+      VertexAttributeName.normal,
+      new Float32Array(normal_arr)
+    );
+    this.landGeometry.setAttribute(
+      VertexAttributeName.uv,
+      new Float32Array(uv_arr)
+    );
+    this.landGeometry.setAttribute(
+      VertexAttributeName.TEXCOORD_1,
+      new Float32Array(uv_arr)
+    );
+
+    this.landGeometry.addSubGeometry({
+      indexStart: 0,
+      indexCount: indeice_arr.length,
+      vertexStart: 0,
+      vertexCount: 0,
+      firstStart: 0,
+      index: 0,
+      topology: 0,
+    });
+
+    // TODO: 메테리얼이 왜 적용이 안되나?
+    const mat = new LitMaterial();
+    // const matData = this.matLibs[geoData.source_mat];
+    // mat.baseMap = Engine3D.res.getTexture(
+    //   StringUtil.normalizePath("/" + matData.map_Kd)
+    // );
+
+    const obj = new Object3D();
+    const mr = obj.addComponent(MeshRenderer);
+    mr.geometry = this.landGeometry;
+    mr.material = mat;
+
+    this.scene.addChild(obj);
   }
 }
 
 new QdrantUploader().run();
-
-// const createCollection = async () => {
-//   await client.createCollection("test_collection", {
-//     vectors: { size: 3, distance: "Euclid" },
-//   });
-// };
-
-// const upsertVectors = async () => {
-//   const operationInfo = await client.upsert("test_collection", {
-//     wait: true,
-//     points: [
-//       { id: 1, vector: [0.0, 0.0, 0.0] },
-//       { id: 2, vector: [1.0, 0.0, 0.0] },
-//       { id: 3, vector: [2.0, 0.0, 0.0] },
-//       { id: 4, vector: [3.0, 0.0, 0.0] },
-//       { id: 5, vector: [4.0, 0.0, 0.0] },
-//       { id: 6, vector: [5.0, 0.0, 0.0] },
-//     ],
-//   });
-
-//   console.log(operationInfo);
-// };
-
-// const runQuery = async () => {
-//   const searchVector = [2.5, 0, 0];
-//   const distanceThreshold = 2;
-
-//   let searchResult = await client.search("test_collection", {
-//     vector: searchVector,
-//     score_threshold: distanceThreshold,
-//     with_vector: true,
-//     with_payload: true,
-//   });
-
-//   console.log(searchResult);
-// };
-
-// //createCollection();
-// //upsertVectors();
-// runQuery();
