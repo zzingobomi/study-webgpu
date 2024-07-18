@@ -205,31 +205,30 @@ class GeometryUpload {
   }
 
   // TODO: upload 로 변경..
+  // 밑에것들을 잘 조합해서 새로운 컴포넌트 제작?
   public async changeGeometrySecond() {
     const geoData = this.secondObj.geometries["land"];
 
-    this.secondGeometry = new GeometryBase();
+    this.firstGeometry.setIndices2(new Uint32Array(geoData.indeice_arr));
 
-    this.secondGeometry.setIndices(new Uint32Array(geoData.indeice_arr));
-
-    this.secondGeometry.setAttribute(
+    this.firstGeometry.setAttribute2(
       VertexAttributeName.position,
       new Float32Array(geoData.vertex_arr)
     );
-    this.secondGeometry.setAttribute(
+    this.firstGeometry.setAttribute2(
       VertexAttributeName.normal,
       new Float32Array(geoData.normal_arr)
     );
-    this.secondGeometry.setAttribute(
+    this.firstGeometry.setAttribute2(
       VertexAttributeName.uv,
       new Float32Array(geoData.uv_arr)
     );
-    this.secondGeometry.setAttribute(
+    this.firstGeometry.setAttribute2(
       VertexAttributeName.TEXCOORD_1,
       new Float32Array(geoData.uv_arr)
     );
 
-    this.secondGeometry.addSubGeometry({
+    this.firstGeometry.addSubGeometry2({
       indexStart: 0,
       indexCount: geoData.indeice_arr.length,
       vertexStart: 0,
@@ -239,11 +238,10 @@ class GeometryUpload {
       topology: 0,
     });
 
-    const mat = new LitMaterial();
+    this.firstGeometry.updateBounds();
 
     const mr = this.landObject3D.getComponent(MeshRenderer);
-    mr.geometry = this.secondGeometry;
-    mr.material = mat;
+    mr.updateGeometry(this.firstGeometry);
   }
 }
 
