@@ -40,10 +40,7 @@ type Face = {
   normal: string[];
 };
 
-///
-/// MeshRender 의 Geometry 와 material 을 같이 변경하면 바뀐다.
-///
-class ChangeGeometry {
+class GeometryUpload {
   view: View3D;
 
   firstObj: ObjParser = new ObjParser();
@@ -207,12 +204,7 @@ class ChangeGeometry {
     this.view.scene.addChild(root);
   }
 
-  ///
-  /// TODO: 새로운 geometry mat 만드는거 말고 변경할 수는 없을까?
-  ///
-  ///
-  /// TODO: 아니면 미리 geometry 만들어 놓고... y 값만 변경하는 식으로? - 이건 그냥 지형은 되겠지만... 건물이나 사람이 들어온건 대처하지 못할듯..
-  ///
+  // TODO: upload 로 변경..
   public async changeGeometrySecond() {
     const geoData = this.secondObj.geometries["land"];
 
@@ -407,4 +399,4 @@ class ObjParser {
   }
 }
 
-new ChangeGeometry().run();
+new GeometryUpload().run();
