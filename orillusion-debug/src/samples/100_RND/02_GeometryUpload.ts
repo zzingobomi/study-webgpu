@@ -241,6 +241,7 @@ class GeometryUpload {
     this.firstGeometry.updateBounds();
 
     const mr = this.landObject3D.getComponent(MeshRenderer);
+    // TODO: generate 에서 indexBuffer, VertexBuffer 새로 만드는거 같은데..
     mr.updateGeometry(this.firstGeometry);
   }
 }

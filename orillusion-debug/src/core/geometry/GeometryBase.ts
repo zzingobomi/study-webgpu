@@ -174,6 +174,7 @@ export class GeometryBase {
     return sub;
   }
 
+  // TODO: SubGeometry 새로 만들필요가 있나?
   public addSubGeometry2(...lodLevels: LODDescriptor[]): SubGeometry {
     let sub = new SubGeometry();
     sub.lodLevels = lodLevels;
@@ -212,6 +213,7 @@ export class GeometryBase {
     }
   }
 
+  // TODO: GeomeryIndicesBuffer 가 꼭 새로 생성되어야 하는가?
   public setIndices2(data: ArrayBufferData) {
     let vertexInfo: VertexAttributeData = {
       attribute: VertexAttributeName.indices,
@@ -238,6 +240,7 @@ export class GeometryBase {
     }
   }
 
+  // TODO: 이건 새로 생성되는건 아닌거 같은데 괜찮은가?
   public setAttribute2(
     attribute: VertexAttributeName | string,
     data: ArrayBufferData
