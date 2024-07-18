@@ -198,7 +198,6 @@ class QdrantUploader {
   private async update() {
     // TODO: GUIGeometry 참고?
     await this.runQuery();
-
     let index = 0;
     const vertex_arr = [];
     const normal_arr = [];
@@ -221,12 +220,12 @@ class QdrantUploader {
       uv_arr.push(...this.searchResults[i].payload.uv2);
       uv_arr.push(...this.searchResults[i].payload.uv3);
     }
-
     // 위에서까지는 제대로 데이터를 가져오는듯..
     // GUIGeometry 참고?
     // TODO: update 에서 계속 만들었다 지웠다 하는게 아닌 기존 geometry 를 업데이트 해야할텐데..
     // this.landGeometry.subGeometries[0].lodLevels[0].indexCount =
     //   indeice_arr.length;
+    this.landGeometry.indicesBuffer.upload(new Uint32Array(indeice_arr));
 
     const posAttrData = this.landGeometry.getAttribute(
       VertexAttributeName.position
