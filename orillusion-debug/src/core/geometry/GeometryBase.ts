@@ -130,39 +130,6 @@ export class GeometryBase {
     this._bounds = value;
   }
 
-  public updateBounds() {
-    let attributes = this.getAttribute(VertexAttributeName.position);
-    if (attributes && attributes.data) {
-      for (let i = 0; i < attributes.data.length / 3; i++) {
-        const px = attributes.data[i * 3 + 0];
-        const py = attributes.data[i * 3 + 1];
-        const pz = attributes.data[i * 3 + 2];
-        if (this._bounds.min.x > px) {
-          this._bounds.min.x = px;
-        }
-        if (this._bounds.min.y > py) {
-          this._bounds.min.y = py;
-        }
-        if (this._bounds.min.z > pz) {
-          this._bounds.min.z = pz;
-        }
-
-        if (this._bounds.max.x < px) {
-          this._bounds.max.x = px;
-        }
-        if (this._bounds.max.y < py) {
-          this._bounds.max.y = py;
-        }
-        if (this._bounds.max.z < pz) {
-          this._bounds.max.z = pz;
-        }
-      }
-    }
-    this._bounds.setFromMinMax(this._bounds.min, this._bounds.max);
-
-    this._onChange = true;
-  }
-
   /**
    * add subGeometry from lod level
    * @param lodLevels @see LODDescriptor
@@ -172,19 +139,6 @@ export class GeometryBase {
     sub.lodLevels = lodLevels;
     this.subGeometries.push(sub);
     return sub;
-  }
-
-  // TODO: SubGeometry 새로 만들필요가 있나?
-  public addSubGeometry2(...lodLevels: LODDescriptor[]): SubGeometry {
-    let sub = new SubGeometry();
-    sub.lodLevels = lodLevels;
-    this.subGeometries = [];
-    this.subGeometries.push(sub);
-    return sub;
-  }
-
-  public changeIndicesData(data: ArrayBufferData) {
-    this._indicesBuffer.upload2(data);
   }
 
   public changeVertexData(
@@ -242,17 +196,6 @@ export class GeometryBase {
     }
   }
 
-  // TODO: GeomeryIndicesBuffer 가 꼭 새로 생성되어야 하는가?
-  public setIndices2(data: ArrayBufferData) {
-    let vertexInfo: VertexAttributeData = {
-      attribute: VertexAttributeName.indices,
-      data: data,
-    };
-    this._attributeMap.set(VertexAttributeName.indices, vertexInfo);
-    this._indicesBuffer = new GeometryIndicesBuffer();
-    this._indicesBuffer.createIndicesBuffer(vertexInfo);
-  }
-
   public initIndices() {
     let vertexInfo: VertexAttributeData = {
       attribute: VertexAttributeName.indices,
@@ -276,23 +219,6 @@ export class GeometryBase {
       };
       this._attributeMap.set(attribute, vertexInfo);
       this._attributes.push(attribute);
-    }
-  }
-
-  // TODO: 이건 새로 생성되는건 아닌거 같은데 괜찮은가?
-  public setAttribute2(
-    attribute: VertexAttributeName | string,
-    data: ArrayBufferData
-  ) {
-    if (attribute == VertexAttributeName.indices) {
-      this.setIndices(data);
-    } else {
-      let vertexInfo: VertexAttributeData = {
-        attribute: attribute,
-        data: data,
-      };
-      this._attributeMap.set(attribute, vertexInfo);
-      //this._attributes.push(attribute);
     }
   }
 

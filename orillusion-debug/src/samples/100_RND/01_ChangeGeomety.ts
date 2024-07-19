@@ -21,7 +21,7 @@ import {
 import { Stats } from "@orillusion/stats";
 import dat from "dat.gui";
 
-type GeometryData = {
+export type GeometryData = {
   name: string;
 
   vertex_arr?: number[];
@@ -34,16 +34,13 @@ type GeometryData = {
   source_faces: Face[];
 };
 
-type Face = {
+export type Face = {
   indices: string[];
   texture: string[];
   normal: string[];
 };
 
-///
-/// MeshRender 의 Geometry 와 material 을 같이 변경하면 바뀐다.
-///
-class ChangeGeometry {
+class ChangeGeomety {
   view: View3D;
 
   firstObj: ObjParser = new ObjParser();
@@ -91,9 +88,11 @@ class ChangeGeometry {
 
     const gui = new dat.GUI();
     const horiFolder = gui.addFolder("Hori");
-    horiFolder.add(this, "showMeshFirst");
+    horiFolder.add(this, "initBaseGeometry");
+    horiFolder.add(this, "showFirstObj");
+    horiFolder.add(this, "showSecondObj");
+    //horiFolder.add(this, "showMeshFirst");
     //horiFolder.add(this, "showMeshSecond");
-    horiFolder.add(this, "changeGeometrySecond");
     horiFolder.open();
   }
 
@@ -113,6 +112,105 @@ class ChangeGeometry {
     const secondText = await secondResponse.text();
 
     this.secondObj.parserOBJ(secondText);
+  }
+
+  public async initBaseGeometry() {
+    this.firstGeometry = new GeometryBase();
+
+    this.firstGeometry.initIndices();
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.position,
+      new Float32Array(12000)
+    );
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.normal,
+      new Float32Array(12000)
+    );
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.uv,
+      new Float32Array(8000)
+    );
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.TEXCOORD_1,
+      new Float32Array(8000)
+    );
+    this.firstGeometry.addSubGeometry({
+      indexStart: 0,
+      indexCount: 12000,
+      vertexStart: 0,
+      vertexCount: 0,
+      firstStart: 0,
+      index: 0,
+      topology: 0,
+    });
+
+    this.landObject3D = new Object3D();
+
+    const mat = new LitMaterial();
+
+    const mr = this.landObject3D.addComponent(MeshRenderer);
+    mr.geometry = this.firstGeometry;
+    mr.material = mat;
+
+    this.view.scene.addChild(this.landObject3D);
+  }
+
+  public async showFirstObj() {
+    for (const key in this.firstObj.geometries) {
+      const geoData = this.firstObj.geometries[key];
+
+      this.firstGeometry.indicesBuffer.upload(
+        new Uint32Array(geoData.indeice_arr)
+      );
+
+      const vertexBuffer = this.firstGeometry.vertexBuffer;
+      vertexBuffer.vertexCount = geoData.indeice_arr.length;
+      vertexBuffer.upload(VertexAttributeName.position, {
+        attribute: VertexAttributeName.position,
+        data: new Float32Array(geoData.vertex_arr),
+      });
+      vertexBuffer.upload(VertexAttributeName.normal, {
+        attribute: VertexAttributeName.normal,
+        data: new Float32Array(geoData.normal_arr),
+      });
+      vertexBuffer.upload(VertexAttributeName.uv, {
+        attribute: VertexAttributeName.uv,
+        data: new Float32Array(geoData.uv_arr),
+      });
+      vertexBuffer.upload(VertexAttributeName.TEXCOORD_1, {
+        attribute: VertexAttributeName.TEXCOORD_1,
+        data: new Float32Array(geoData.uv_arr),
+      });
+    }
+  }
+
+  public async showSecondObj() {
+    for (const key in this.secondObj.geometries) {
+      const geoData = this.secondObj.geometries[key];
+
+      this.firstGeometry.indicesBuffer.upload(
+        new Uint32Array(geoData.indeice_arr)
+      );
+
+      const vertexBuffer = this.firstGeometry.vertexBuffer;
+      vertexBuffer.vertexCount = geoData.indeice_arr.length;
+      vertexBuffer.upload(VertexAttributeName.position, {
+        attribute: VertexAttributeName.position,
+        data: new Float32Array(geoData.vertex_arr),
+      });
+      vertexBuffer.upload(VertexAttributeName.normal, {
+        attribute: VertexAttributeName.normal,
+        data: new Float32Array(geoData.normal_arr),
+      });
+      vertexBuffer.upload(VertexAttributeName.uv, {
+        attribute: VertexAttributeName.uv,
+        data: new Float32Array(geoData.uv_arr),
+      });
+      vertexBuffer.upload(VertexAttributeName.TEXCOORD_1, {
+        attribute: VertexAttributeName.TEXCOORD_1,
+        data: new Float32Array(geoData.uv_arr),
+      });
+    }
   }
 
   public async showMeshFirst() {
@@ -205,53 +303,6 @@ class ChangeGeometry {
       root.addChild(this.landObject3D);
     }
     this.view.scene.addChild(root);
-  }
-
-  ///
-  /// TODO: 새로운 geometry mat 만드는거 말고 변경할 수는 없을까?
-  ///
-  ///
-  /// TODO: 아니면 미리 geometry 만들어 놓고... y 값만 변경하는 식으로? - 이건 그냥 지형은 되겠지만... 건물이나 사람이 들어온건 대처하지 못할듯..
-  ///
-  public async changeGeometrySecond() {
-    const geoData = this.secondObj.geometries["land"];
-
-    this.secondGeometry = new GeometryBase();
-
-    this.secondGeometry.setIndices(new Uint32Array(geoData.indeice_arr));
-
-    this.secondGeometry.setAttribute(
-      VertexAttributeName.position,
-      new Float32Array(geoData.vertex_arr)
-    );
-    this.secondGeometry.setAttribute(
-      VertexAttributeName.normal,
-      new Float32Array(geoData.normal_arr)
-    );
-    this.secondGeometry.setAttribute(
-      VertexAttributeName.uv,
-      new Float32Array(geoData.uv_arr)
-    );
-    this.secondGeometry.setAttribute(
-      VertexAttributeName.TEXCOORD_1,
-      new Float32Array(geoData.uv_arr)
-    );
-
-    this.secondGeometry.addSubGeometry({
-      indexStart: 0,
-      indexCount: geoData.indeice_arr.length,
-      vertexStart: 0,
-      vertexCount: 0,
-      firstStart: 0,
-      index: 0,
-      topology: 0,
-    });
-
-    const mat = new LitMaterial();
-
-    const mr = this.landObject3D.getComponent(MeshRenderer);
-    mr.geometry = this.secondGeometry;
-    mr.material = mat;
   }
 }
 
@@ -407,4 +458,4 @@ class ObjParser {
   }
 }
 
-new ChangeGeometry().run();
+new ChangeGeomety().run();

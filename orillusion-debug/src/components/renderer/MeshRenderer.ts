@@ -90,38 +90,6 @@ export class MeshRenderer extends RenderNode {
     }
   }
 
-  public updateGeometry(value: GeometryBase) {
-    super.geometry = value;
-    let isMorphTarget = value.morphTargetDictionary != null;
-    if (isMorphTarget) {
-      this.morphData ||= new MorphTargetData();
-      this.morphData.morphTargetsRelative = value.morphTargetsRelative;
-      this.morphData.initMorphTarget(value);
-    }
-    this.morphData && (this.morphData.enable = isMorphTarget);
-    if (this.morphData && this.morphData.enable) {
-      this.addRendererMask(RendererMask.MorphTarget);
-    } else {
-      this.removeRendererMask(RendererMask.MorphTarget);
-      // this.onCompute = null;
-    }
-
-    this.object3D.bound = value.bounds.clone();
-    this._readyPipeline = false;
-    if (!this._readyPipeline) {
-      this.initPipeline();
-
-      if (this._computes && this._computes) {
-        this.onCompute = mergeFunctions(this.onCompute, () => {
-          for (let i = 0; i < this._computes.length; i++) {
-            const compute = this._computes[i];
-            compute.onUpdate();
-          }
-        });
-      }
-    }
-  }
-
   /**
    * material
    */
