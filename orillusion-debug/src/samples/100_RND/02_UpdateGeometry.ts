@@ -76,7 +76,6 @@ class UpdateGeometry {
     horiFolder.open();
   }
 
-  // TODO: 줄어드는건 왜 안되지..?
   async update() {
     const playerPosition = this.player.transform.worldPosition;
     const qdrantGeoData = await this.qdrantParser.getQdrantGeoData(

@@ -44,7 +44,6 @@ export class HoriLand extends Object3D {
   }
 
   public updateGeometry(geoData: QdrantGeoData) {
-    console.log(geoData.vertexArr);
     this.geometry.indicesBuffer.upload(new Uint32Array(geoData.indeiceArr));
 
     const vertexBuffer = this.geometry.vertexBuffer;
@@ -65,5 +64,8 @@ export class HoriLand extends Object3D {
       attribute: VertexAttributeName.TEXCOORD_1,
       data: new Float32Array(geoData.uvArr),
     });
+
+    this.geometry.subGeometries[0].lodLevels[0].indexCount =
+      geoData.indeiceArr.length;
   }
 }

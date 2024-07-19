@@ -181,6 +181,9 @@ class ChangeGeomety {
         attribute: VertexAttributeName.TEXCOORD_1,
         data: new Float32Array(geoData.uv_arr),
       });
+
+      this.firstGeometry.subGeometries[0].lodLevels[0].indexCount =
+        geoData.indeice_arr.length;
     }
   }
 
@@ -188,10 +191,12 @@ class ChangeGeomety {
     for (const key in this.secondObj.geometries) {
       const geoData = this.secondObj.geometries[key];
 
+      // index buffer update
       this.firstGeometry.indicesBuffer.upload(
         new Uint32Array(geoData.indeice_arr)
       );
 
+      // vertex buffer update
       const vertexBuffer = this.firstGeometry.vertexBuffer;
       vertexBuffer.vertexCount = geoData.indeice_arr.length;
       vertexBuffer.upload(VertexAttributeName.position, {
@@ -210,6 +215,10 @@ class ChangeGeomety {
         attribute: VertexAttributeName.TEXCOORD_1,
         data: new Float32Array(geoData.uv_arr),
       });
+
+      // lodLevel update
+      this.firstGeometry.subGeometries[0].lodLevels[0].indexCount =
+        geoData.indeice_arr.length;
     }
   }
 
