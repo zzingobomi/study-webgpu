@@ -20,25 +20,9 @@ import {
 } from "../..";
 import { Stats } from "@orillusion/stats";
 import dat from "dat.gui";
-
-type GeometryData = {
-  name: string;
-
-  vertex_arr?: number[];
-  normal_arr?: number[];
-  uv_arr?: number[];
-  indeice_arr?: number[];
-  index?: number;
-
-  source_mat: string;
-  source_faces: Face[];
-};
-
-type Face = {
-  indices: string[];
-  texture: string[];
-  normal: string[];
-};
+import { Face, GeometryData, HoriLand } from "../../core/HoriLand";
+import { GeometryBaseHori } from "../../core/geometry/GeometryBaseHori";
+import { MeshRendererHori } from "../../components/renderer/MeshRendererHori";
 
 class GeometryUpload {
   view: View3D;
@@ -46,8 +30,12 @@ class GeometryUpload {
   firstObj: ObjParser = new ObjParser();
   secondObj: ObjParser = new ObjParser();
 
+  tempGeometry: GeometryBaseHori;
+
   firstGeometry: GeometryBase;
   secondGeometry: GeometryBase;
+
+  horiLand: HoriLand;
 
   landObject3D: Object3D;
 
@@ -88,9 +76,12 @@ class GeometryUpload {
 
     const gui = new dat.GUI();
     const horiFolder = gui.addFolder("Hori");
-    horiFolder.add(this, "showMeshFirst");
+    horiFolder.add(this, "showMeshTemp");
+    //horiFolder.add(this, "showHoriLand");
+    //horiFolder.add(this, "showHoriLandMeshFirst");
+    //horiFolder.add(this, "showMeshFirst");
     //horiFolder.add(this, "showMeshSecond");
-    horiFolder.add(this, "changeGeometrySecond");
+    //horiFolder.add(this, "changeGeometrySecond");
     horiFolder.open();
   }
 
@@ -110,6 +101,53 @@ class GeometryUpload {
     const secondText = await secondResponse.text();
 
     this.secondObj.parserOBJ(secondText);
+  }
+
+  public async showHoriLand() {
+    this.horiLand = new HoriLand();
+    this.view.scene.addChild(this.horiLand.root);
+  }
+
+  public async showHoriLandMeshFirst() {
+    for (const key in this.firstObj.geometries) {
+      const geoData = this.firstObj.geometries[key];
+
+      this.horiLand.changeGeometry(geoData);
+    }
+  }
+
+  public async showMeshTemp() {
+    for (const key in this.firstObj.geometries) {
+      const geoData = this.firstObj.geometries[key];
+
+      this.tempGeometry = new GeometryBaseHori();
+
+      this.tempGeometry.setIndices(new Uint32Array(geoData.indeice_arr));
+      this.tempGeometry.setAttribute(
+        VertexAttributeName.position,
+        new Float32Array(geoData.vertex_arr)
+      );
+      this.tempGeometry.setAttribute(
+        VertexAttributeName.normal,
+        new Float32Array(geoData.normal_arr)
+      );
+      this.tempGeometry.setAttribute(
+        VertexAttributeName.uv,
+        new Float32Array(geoData.uv_arr)
+      );
+      this.tempGeometry.setAttribute(
+        VertexAttributeName.TEXCOORD_1,
+        new Float32Array(geoData.uv_arr)
+      );
+
+      const mat = new LitMaterial();
+
+      this.landObject3D = new Object3D();
+      const mr = this.landObject3D.addComponent(MeshRendererHori);
+      // mr.geometry = this.tempGeometry;
+      // mr.material = mat;
+      // this.view.scene.addChild(this.landObject3D);
+    }
   }
 
   public async showMeshFirst() {
