@@ -183,6 +183,35 @@ export class GeometryBase {
     return sub;
   }
 
+  public changeIndicesData(data: ArrayBufferData) {
+    this._indicesBuffer.upload2(data);
+  }
+
+  public changeVertexData(
+    vertexCount: number,
+    position: ArrayBufferData,
+    normal: ArrayBufferData,
+    uv: ArrayBufferData
+  ) {
+    this._vertexBuffer.vertexCount = vertexCount;
+    this._vertexBuffer.upload(VertexAttributeName.position, {
+      attribute: VertexAttributeName.position,
+      data: position,
+    });
+    this._vertexBuffer.upload(VertexAttributeName.normal, {
+      attribute: VertexAttributeName.normal,
+      data: normal,
+    });
+    this._vertexBuffer.upload(VertexAttributeName.uv, {
+      attribute: VertexAttributeName.uv,
+      data: uv,
+    });
+    this._vertexBuffer.upload(VertexAttributeName.TEXCOORD_1, {
+      attribute: VertexAttributeName.TEXCOORD_1,
+      data: uv,
+    });
+  }
+
   /**
    * create geometry by shaderReflection
    * @param shaderReflection ShaderReflection
@@ -218,6 +247,16 @@ export class GeometryBase {
     let vertexInfo: VertexAttributeData = {
       attribute: VertexAttributeName.indices,
       data: data,
+    };
+    this._attributeMap.set(VertexAttributeName.indices, vertexInfo);
+    this._indicesBuffer = new GeometryIndicesBuffer();
+    this._indicesBuffer.createIndicesBuffer(vertexInfo);
+  }
+
+  public initIndices() {
+    let vertexInfo: VertexAttributeData = {
+      attribute: VertexAttributeName.indices,
+      data: new Uint32Array(12000),
     };
     this._attributeMap.set(VertexAttributeName.indices, vertexInfo);
     this._indicesBuffer = new GeometryIndicesBuffer();

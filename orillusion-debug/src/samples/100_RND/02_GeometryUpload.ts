@@ -21,16 +21,12 @@ import {
 import { Stats } from "@orillusion/stats";
 import dat from "dat.gui";
 import { Face, GeometryData, HoriLand } from "../../core/HoriLand";
-import { GeometryBaseHori } from "../../core/geometry/GeometryBaseHori";
-import { MeshRendererHori } from "../../components/renderer/MeshRendererHori";
 
 class GeometryUpload {
   view: View3D;
 
   firstObj: ObjParser = new ObjParser();
   secondObj: ObjParser = new ObjParser();
-
-  tempGeometry: GeometryBaseHori;
 
   firstGeometry: GeometryBase;
   secondGeometry: GeometryBase;
@@ -76,11 +72,13 @@ class GeometryUpload {
 
     const gui = new dat.GUI();
     const horiFolder = gui.addFolder("Hori");
+    horiFolder.add(this, "initMeshTemp");
     horiFolder.add(this, "showMeshTemp");
+    horiFolder.add(this, "showMeshTemp2");
     //horiFolder.add(this, "showHoriLand");
     //horiFolder.add(this, "showHoriLandMeshFirst");
-    //horiFolder.add(this, "showMeshFirst");
-    //horiFolder.add(this, "showMeshSecond");
+    horiFolder.add(this, "showMeshFirst");
+    horiFolder.add(this, "showMeshSecond");
     //horiFolder.add(this, "changeGeometrySecond");
     horiFolder.open();
   }
@@ -116,37 +114,80 @@ class GeometryUpload {
     }
   }
 
+  public async initMeshTemp() {
+    this.firstGeometry = new GeometryBase();
+
+    this.firstGeometry.initIndices();
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.position,
+      new Float32Array(12000)
+    );
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.normal,
+      new Float32Array(12000)
+    );
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.uv,
+      new Float32Array(8000)
+    );
+    this.firstGeometry.setAttribute(
+      VertexAttributeName.TEXCOORD_1,
+      new Float32Array(8000)
+    );
+    this.firstGeometry.addSubGeometry({
+      indexStart: 0,
+      indexCount: 12000,
+      vertexStart: 0,
+      vertexCount: 0,
+      firstStart: 0,
+      index: 0,
+      topology: 0,
+    });
+
+    this.landObject3D = new Object3D();
+
+    const mat = new LitMaterial();
+
+    const mr = this.landObject3D.addComponent(MeshRenderer);
+    mr.geometry = this.firstGeometry;
+    mr.material = mat;
+
+    this.view.scene.addChild(this.landObject3D);
+  }
+
   public async showMeshTemp() {
     for (const key in this.firstObj.geometries) {
       const geoData = this.firstObj.geometries[key];
 
-      this.tempGeometry = new GeometryBaseHori();
+      this.firstGeometry.changeIndicesData(
+        new Uint32Array(geoData.indeice_arr)
+      );
 
-      this.tempGeometry.setIndices(new Uint32Array(geoData.indeice_arr));
-      this.tempGeometry.setAttribute(
-        VertexAttributeName.position,
-        new Float32Array(geoData.vertex_arr)
-      );
-      this.tempGeometry.setAttribute(
-        VertexAttributeName.normal,
-        new Float32Array(geoData.normal_arr)
-      );
-      this.tempGeometry.setAttribute(
-        VertexAttributeName.uv,
+      // TODO: vertexCount 구하기
+      this.firstGeometry.changeVertexData(
+        geoData.indeice_arr.length,
+        new Float32Array(geoData.vertex_arr),
+        new Float32Array(geoData.normal_arr),
         new Float32Array(geoData.uv_arr)
       );
-      this.tempGeometry.setAttribute(
-        VertexAttributeName.TEXCOORD_1,
-        new Float32Array(geoData.uv_arr)
+    }
+  }
+
+  public async showMeshTemp2() {
+    for (const key in this.secondObj.geometries) {
+      const geoData = this.secondObj.geometries[key];
+
+      this.firstGeometry.changeIndicesData(
+        new Uint32Array(geoData.indeice_arr)
       );
 
-      const mat = new LitMaterial();
-
-      this.landObject3D = new Object3D();
-      const mr = this.landObject3D.addComponent(MeshRendererHori);
-      // mr.geometry = this.tempGeometry;
-      // mr.material = mat;
-      // this.view.scene.addChild(this.landObject3D);
+      // TODO: vertexCount 구하기
+      this.firstGeometry.changeVertexData(
+        geoData.indeice_arr.length,
+        new Float32Array(geoData.vertex_arr),
+        new Float32Array(geoData.normal_arr),
+        new Float32Array(geoData.uv_arr)
+      );
     }
   }
 
