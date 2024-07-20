@@ -19,19 +19,17 @@ import {
   View3D,
 } from "../..";
 import { Stats } from "@orillusion/stats";
-import { QdrantManager } from "./core/QdrantManager";
-import { Player } from "./core/Player";
 import dat from "dat.gui";
-import { HoriLand } from "./core/HoriLand";
+import { ObjParser } from "./core/ObjParser";
+import { QdrantManager } from "./core/QdrantManager";
 
-class UpdateGeometry {
+class ObjUploader {
   view: View3D;
+  objParser: ObjParser = new ObjParser();
   qdrantManager: QdrantManager = new QdrantManager();
-  player: Player;
-  horiLand: HoriLand;
 
   async run() {
-    await Engine3D.init({ beforeRender: () => this.update() });
+    await Engine3D.init();
     let scene = new Scene3D();
     scene.addComponent(Stats);
 
@@ -63,30 +61,35 @@ class UpdateGeometry {
 
     this.qdrantManager.createCollection("hori");
 
-    this.player = new Player();
-    this.player.transform.worldPosition.set(0, 0, 0);
-    this.player.sight = 1;
-
-    this.horiLand = new HoriLand();
-    this.view.scene.addChild(this.horiLand);
-
     Engine3D.startRenderView(this.view);
+
+    await this.initScene();
 
     const gui = new dat.GUI();
     const horiFolder = gui.addFolder("Hori");
-    horiFolder.add(this.player, "sight", -10, 10, 0.1);
+    horiFolder.add(this, "upsertQdrant");
     horiFolder.open();
   }
 
-  async update() {
-    const playerPosition = this.player.transform.worldPosition;
-    const qdrantGeoData = await this.qdrantManager.getQdrantGeoData(
-      playerPosition,
-      this.player.sight
-    );
+  async initScene() {
+    const objHref = "/second.obj";
+    const objResponse = await fetch(objHref);
+    const objText = await objResponse.text();
+    await this.objParser.parserObj(objText);
 
-    this.horiLand.updateGeometry(qdrantGeoData);
+    const obj = await this.objParser.createGeometry();
+
+    this.view.scene.addChild(obj);
+  }
+
+  async upsertQdrant() {
+    this.qdrantManager.upsertQdrantData(
+      this.objParser.sourceVertices,
+      this.objParser.sourceNormals,
+      this.objParser.sourceTextureCoords,
+      this.objParser.geometries
+    );
   }
 }
 
-new UpdateGeometry().run();
+new ObjUploader().run();

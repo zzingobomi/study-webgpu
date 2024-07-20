@@ -21,7 +21,7 @@ import {
 import { Stats } from "@orillusion/stats";
 import dat from "dat.gui";
 
-export type GeometryData = {
+type GeometryData = {
   name: string;
 
   vertex_arr?: number[];
@@ -34,7 +34,7 @@ export type GeometryData = {
   source_faces: Face[];
 };
 
-export type Face = {
+type Face = {
   indices: string[];
   texture: string[];
   normal: string[];

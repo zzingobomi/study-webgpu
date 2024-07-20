@@ -3,8 +3,7 @@ import { Object3D } from "../../../core/entities/Object3D";
 import { GeometryBase } from "../../../core/geometry/GeometryBase";
 import { VertexAttributeName } from "../../../core/geometry/VertexAttributeName";
 import { LitMaterial } from "../../../materials/LitMaterial";
-import { QdrantGeoData } from "./QdrantParser";
-
+import { QdrantGeoData } from "./QdrantData";
 export class HoriLand extends Object3D {
   public geometry: GeometryBase;
 
