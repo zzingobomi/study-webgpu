@@ -1,9 +1,11 @@
+import { Engine3D, StringUtil } from "../../..";
 import { MeshRenderer } from "../../../components/renderer/MeshRenderer";
 import { Object3D } from "../../../core/entities/Object3D";
 import { GeometryBase } from "../../../core/geometry/GeometryBase";
 import { VertexAttributeName } from "../../../core/geometry/VertexAttributeName";
 import { LitMaterial } from "../../../materials/LitMaterial";
 import { Face, GeometryData } from "./GeometryData";
+import { MatData } from "./MatData";
 import { applyVector2, applyVector3 } from "./utils";
 
 export class ObjParser {
@@ -14,6 +16,8 @@ export class ObjParser {
   public geometries: { [name: string]: GeometryData } = {};
   public activeGeo: GeometryData;
 
+  public matLibs: { [name: string]: MatData } = {};
+
   public async parserObj(text: string) {
     let str = text.split("\n");
     for (let i = 0; i < str.length; i++) {
@@ -22,7 +26,7 @@ export class ObjParser {
     }
   }
 
-  public async createGeometry() {
+  public async createMesh() {
     const root = new Object3D();
     for (const key in this.geometries) {
       const geoData = this.geometries[key];
@@ -113,12 +117,11 @@ export class ObjParser {
           topology: 0,
         });
 
-        // TODO: 메테리얼이 왜 적용이 안되나?
+        // TODO: 없을때 조건 처리
         const mat = new LitMaterial();
-        // const matData = this.matLibs[geoData.source_mat];
-        // mat.baseMap = Engine3D.res.getTexture(
-        //   StringUtil.normalizePath("/" + matData.map_Kd)
-        // );
+        const matData = this.matLibs[geoData.sourceMat];
+        mat.baseMap = Engine3D.res.getTexture(`/${matData.map_Kd}`);
+        mat.normalMap = Engine3D.res.getTexture(`/${matData.map_Bump}`);
 
         const obj = new Object3D();
         const mr = obj.addComponent(MeshRenderer);
@@ -202,6 +205,55 @@ export class ObjParser {
     } else if (splitedLine[0] === "usemtl") {
       this.activeGeo.sourceMat = splitedLine[1];
     } else if (splitedLine[0] === `mtllib`) {
+      console.log(`${splitedLine[1]}`);
+    }
+  }
+
+  public async loadMTL(text: string) {
+    let mat: MatData;
+
+    let str = text.split("\n");
+    for (let i = 0; i < str.length; i++) {
+      let line = str[i];
+      if (line === "" || line.startsWith("#")) continue;
+
+      line = line.trim();
+      const splitedLine = line.split(/\s+/);
+      if (splitedLine[0] === "newmtl") {
+        mat = { name: splitedLine[1] };
+        this.matLibs[splitedLine[1]] = mat;
+      } else {
+        if (splitedLine[0].indexOf(`map_`) != -1) {
+          mat[splitedLine[0]] = splitedLine[1];
+          if (!mat.textures) {
+            mat.textures = [splitedLine[splitedLine.length - 1]];
+          } else {
+            mat.textures.push(splitedLine[splitedLine.length - 1]);
+          }
+        } else if (splitedLine.length == 2) {
+          mat[splitedLine[0]] = Number(splitedLine[1]);
+        } else if (splitedLine.length == 3) {
+          mat[splitedLine[0]] = [
+            Number(splitedLine[1]),
+            Number(splitedLine[2]),
+          ];
+        } else if (splitedLine.length == 4) {
+          mat[splitedLine[0]] = [
+            Number(splitedLine[1]),
+            Number(splitedLine[2]),
+            Number(splitedLine[3]),
+          ];
+        }
+      }
+    }
+
+    for (const key in this.matLibs) {
+      const mat = this.matLibs[key];
+      if (mat.textures && mat.textures.length > 0) {
+        for (let i = 0; i < mat.textures.length; i++) {
+          await Engine3D.res.loadTexture(`/${mat.textures[i]}`, null, true);
+        }
+      }
     }
   }
 }

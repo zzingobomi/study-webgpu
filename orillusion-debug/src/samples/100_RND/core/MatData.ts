@@ -13,5 +13,6 @@ export interface MatData {
   Kr?: string[];
   illum?: string;
   map_Kd?: string;
+  map_Bump?: string;
   textures?: string[];
 }
