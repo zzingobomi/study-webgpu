@@ -72,7 +72,7 @@ class ObjUploader {
   }
 
   async initScene() {
-    const objHref = "/second.obj";
+    const objHref = "/hori_test.obj";
     const objResponse = await fetch(objHref);
     const objText = await objResponse.text();
     await this.objParser.parserObj(objText);

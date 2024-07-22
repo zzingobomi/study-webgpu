@@ -63,6 +63,27 @@ export class ObjParser {
         applyVector2(u2, this.sourceTextureCoords, geoData.uvArr);
         geoData.indeiceArr[index] = index++;
 
+        // TODO: 무조건 face 는 정점이 3개만 있도록 통일을 시켜야 하나?
+        if (face.indices.length > 3) {
+          const f3 = parseInt(face.indices[3]) - 1;
+          const n3 = parseInt(face.normal[3]) - 1;
+          const u3 = parseInt(face.texture[3]) - 1;
+          applyVector3(f0, this.sourceVertices, geoData.vertexArr);
+          applyVector3(n0, this.sourceNormals, geoData.normalArr);
+          applyVector2(u0, this.sourceTextureCoords, geoData.uvArr);
+          geoData.indeiceArr[index] = index++;
+
+          applyVector3(f2, this.sourceVertices, geoData.vertexArr);
+          applyVector3(n2, this.sourceNormals, geoData.normalArr);
+          applyVector2(u2, this.sourceTextureCoords, geoData.uvArr);
+          geoData.indeiceArr[index] = index++;
+
+          applyVector3(f3, this.sourceVertices, geoData.vertexArr);
+          applyVector3(n3, this.sourceNormals, geoData.normalArr);
+          applyVector2(u3, this.sourceTextureCoords, geoData.uvArr);
+          geoData.indeiceArr[index] = index++;
+        }
+
         const geo: GeometryBase = new GeometryBase();
         geo.setIndices(new Uint32Array(geoData.indeiceArr));
         geo.setAttribute(

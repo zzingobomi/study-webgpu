@@ -75,6 +75,9 @@ class UpdateGeometry {
     const gui = new dat.GUI();
     const horiFolder = gui.addFolder("Hori");
     horiFolder.add(this.player, "sight", -10, 10, 0.1);
+    horiFolder.add(this.player.transform, "x", -10, 10, 0.1);
+    horiFolder.add(this.player.transform, "y", -10, 10, 0.1);
+    horiFolder.add(this.player.transform, "z", -10, 10, 0.1);
     horiFolder.open();
   }
 
