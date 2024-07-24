@@ -1,6 +1,6 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { Vector3 } from "../../../math/Vector3";
-import { QdrantGeoData, QdrantPayload, QdrantVector } from "./QdrantData";
+import { QdrantData, QdrantPayload, QdrantVector } from "./QdrantData";
 import { GeometryData } from "./GeometryData";
 import { applyVector2, applyVector3 } from "./utils";
 
@@ -37,32 +37,35 @@ export class QdrantManager {
     }
   }
 
-  public async getQdrantGeoData(position: Vector3, sight: number) {
+  public async getQdrantData(position: Vector3, sight: number) {
     const results = (await this.runQuery(
       position,
       sight
     )) as unknown as QdrantVector[];
 
+    // Create Geometry
     let index = 0;
-    const qdrantGeoData = new QdrantGeoData();
+    const qdrantData = new QdrantData();
     for (let i = 0; i < results.length; i++) {
-      qdrantGeoData.vertexArr.push(...results[i].payload.vertex1);
-      qdrantGeoData.vertexArr.push(...results[i].payload.vertex2);
-      qdrantGeoData.vertexArr.push(...results[i].payload.vertex3);
+      qdrantData.vertexArr.push(...results[i].payload.vertex1);
+      qdrantData.vertexArr.push(...results[i].payload.vertex2);
+      qdrantData.vertexArr.push(...results[i].payload.vertex3);
 
-      qdrantGeoData.normalArr.push(...results[i].payload.normal1);
-      qdrantGeoData.normalArr.push(...results[i].payload.normal2);
-      qdrantGeoData.normalArr.push(...results[i].payload.normal3);
+      qdrantData.normalArr.push(...results[i].payload.normal1);
+      qdrantData.normalArr.push(...results[i].payload.normal2);
+      qdrantData.normalArr.push(...results[i].payload.normal3);
 
-      qdrantGeoData.uvArr.push(...results[i].payload.uv1);
-      qdrantGeoData.uvArr.push(...results[i].payload.uv2);
-      qdrantGeoData.uvArr.push(...results[i].payload.uv3);
+      qdrantData.uvArr.push(...results[i].payload.uv1);
+      qdrantData.uvArr.push(...results[i].payload.uv2);
+      qdrantData.uvArr.push(...results[i].payload.uv3);
 
-      qdrantGeoData.indeiceArr.push(index, index + 1, index + 2);
+      qdrantData.indeiceArr.push(index, index + 1, index + 2);
       index += 3;
+
+      qdrantData.mats.add(results[i].payload.mat);
     }
 
-    return qdrantGeoData;
+    return qdrantData;
   }
 
   public async upsertQdrantData(
@@ -71,6 +74,8 @@ export class QdrantManager {
     sourceTextureCoords: number[][],
     data: { [name: string]: GeometryData }
   ) {
+    let qdrantId = 0;
+
     for (const key in data) {
       const geoData = data[key];
 
@@ -79,7 +84,6 @@ export class QdrantManager {
       geoData.uvArr = [];
       geoData.indeiceArr = [];
 
-      let qdrantId = 0;
       const qdrantVectors: QdrantVector[] = [];
       for (let i = 0; i < geoData.sourceFaces.length; i++) {
         const face = geoData.sourceFaces[i];
@@ -164,6 +168,8 @@ export class QdrantManager {
           uv1: [uv1.x, uv1.y],
           uv2: [uv2.x, uv2.y],
           uv3: [uv3.x, uv3.y],
+
+          mat: geoData.sourceMat,
         };
 
         // QdrantVector 생성

@@ -82,7 +82,6 @@ class ObjUploader {
     const mtlText = await mtlResponse.text();
     await this.objParser.loadMTL(mtlText);
 
-    // TODO: 이미지 파일은 스트리밍이 아닌 vertex 에 어떤 mtl 인지 저장되어 있다가 다운로드...?
     const obj = await this.objParser.createMesh();
 
     this.view.scene.addChild(obj);

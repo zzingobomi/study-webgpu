@@ -10,6 +10,8 @@ export interface QdrantPayload extends Record<string, unknown> {
   uv1: number[];
   uv2: number[];
   uv3: number[];
+
+  mat: string;
 }
 
 export interface QdrantVector {
@@ -18,9 +20,11 @@ export interface QdrantVector {
   payload: QdrantPayload;
 }
 
-export class QdrantGeoData {
+export class QdrantData {
   vertexArr: number[] = [];
   normalArr: number[] = [];
   uvArr: number[] = [];
   indeiceArr: number[] = [];
+
+  mats: Set<string> = new Set<string>();
 }

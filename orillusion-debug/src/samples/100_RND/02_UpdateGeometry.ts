@@ -23,12 +23,33 @@ import { QdrantManager } from "./core/QdrantManager";
 import { Player } from "./core/Player";
 import dat from "dat.gui";
 import { HoriLand } from "./core/HoriLand";
+import Worker from "web-worker";
 
 class UpdateGeometry {
   view: View3D;
   qdrantManager: QdrantManager = new QdrantManager();
   player: Player;
   horiLand: HoriLand;
+  updateWorker: Worker;
+
+  constructor() {
+    this.updateWorker = new Worker(
+      new URL("./core/updateWorker.ts", import.meta.url),
+      {
+        type: "module",
+      }
+    );
+
+    this.updateWorker.onmessage = (event: MessageEvent) => {
+      const { qdrantData, error } = event.data;
+
+      if (error) {
+        console.error(error);
+      } else {
+        this.horiLand?.updateQdrantData(qdrantData);
+      }
+    };
+  }
 
   async run() {
     await Engine3D.init({ beforeRender: () => this.update() });
@@ -65,7 +86,7 @@ class UpdateGeometry {
 
     this.player = new Player();
     this.player.transform.worldPosition.set(0, 0, 0);
-    this.player.sight = 1;
+    this.player.sight = 5;
 
     this.horiLand = new HoriLand();
     this.view.scene.addChild(this.horiLand);
@@ -74,7 +95,7 @@ class UpdateGeometry {
 
     const gui = new dat.GUI();
     const horiFolder = gui.addFolder("Hori");
-    horiFolder.add(this.player, "sight", -10, 10, 0.1);
+    horiFolder.add(this.player, "sight", 0, 20, 0.1);
     horiFolder.add(this.player.transform, "x", -10, 10, 0.1);
     horiFolder.add(this.player.transform, "y", -10, 10, 0.1);
     horiFolder.add(this.player.transform, "z", -10, 10, 0.1);
@@ -83,12 +104,7 @@ class UpdateGeometry {
 
   async update() {
     const playerPosition = this.player.transform.worldPosition;
-    const qdrantGeoData = await this.qdrantManager.getQdrantGeoData(
-      playerPosition,
-      this.player.sight
-    );
-
-    this.horiLand.updateGeometry(qdrantGeoData);
+    this.updateWorker.postMessage({ playerPosition, sight: this.player.sight });
   }
 }
 
