@@ -169,6 +169,7 @@ export class QdrantManager {
           uv2: [uv2.x, uv2.y],
           uv3: [uv3.x, uv3.y],
 
+          geometry: geoData.name,
           mat: geoData.sourceMat,
         };
 

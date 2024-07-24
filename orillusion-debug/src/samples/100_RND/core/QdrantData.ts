@@ -11,6 +11,7 @@ export interface QdrantPayload extends Record<string, unknown> {
   uv2: number[];
   uv3: number[];
 
+  geometry: string;
   mat: string;
 }
 

@@ -45,6 +45,9 @@ export class HoriLand extends Object3D {
   }
 
   public updateQdrantData(qdrantData: QdrantData) {
+    // TODO: payload 에서 geometry 와 material 을 이용해서 만들어줘야 할거 같은데...
+    // geometry pool 을 이용해야 하나..?
+
     // Geometry Update
     this.geometry.indicesBuffer.upload(new Uint32Array(qdrantData.indeiceArr));
 
