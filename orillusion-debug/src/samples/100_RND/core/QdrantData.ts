@@ -21,11 +21,14 @@ export interface QdrantVector {
   payload: QdrantPayload;
 }
 
+// geometry 와 mat 은 따로따로인데 meshrender 만들때는 둘다 있어야 하니....
+// qdrant 에 geometry name 이런것도 막 집어넣으려고 했던게 문제인가..?
 export class QdrantData {
   vertexArr: number[] = [];
   normalArr: number[] = [];
   uvArr: number[] = [];
   indeiceArr: number[] = [];
 
-  mats: Set<string> = new Set<string>();
+  geometryName: string;
+  matName: string;
 }

@@ -11,6 +11,9 @@ export class QdrantManager {
   public qdrantCollection = "";
   public client: QdrantClient;
 
+  public qdrantDataPool: Map<string, QdrantData> = new Map();
+  public indexPool: Map<string, number> = new Map();
+
   constructor() {
     this.client = new QdrantClient({
       host: this.QdrantHost,
@@ -43,10 +46,20 @@ export class QdrantManager {
       sight
     )) as unknown as QdrantVector[];
 
-    // Create Geometry
-    let index = 0;
-    const qdrantData = new QdrantData();
+    this.qdrantDataPool.clear();
+    this.indexPool.clear();
+
+    // geometry 이름을 기준으로 하는게 맞는건가..?
     for (let i = 0; i < results.length; i++) {
+      const geoName = results[i].payload.geometry;
+      const qdrantData = this.loadQdrantData(geoName);
+
+      if (!this.indexPool.has(geoName)) {
+        this.indexPool.set(geoName, 0);
+      }
+
+      let index = this.indexPool.get(geoName);
+
       qdrantData.vertexArr.push(...results[i].payload.vertex1);
       qdrantData.vertexArr.push(...results[i].payload.vertex2);
       qdrantData.vertexArr.push(...results[i].payload.vertex3);
@@ -62,9 +75,21 @@ export class QdrantManager {
       qdrantData.indeiceArr.push(index, index + 1, index + 2);
       index += 3;
 
-      qdrantData.mats.add(results[i].payload.mat);
+      qdrantData.geometryName = results[i].payload.geometry;
+      qdrantData.matName = results[i].payload.mat;
+
+      this.indexPool.set(geoName, index);
     }
 
+    return this.qdrantDataPool;
+  }
+
+  public loadQdrantData(name: string) {
+    if (this.qdrantDataPool.has(name)) {
+      return this.qdrantDataPool.get(name);
+    }
+    const qdrantData = new QdrantData();
+    this.qdrantDataPool.set(name, qdrantData);
     return qdrantData;
   }
 
