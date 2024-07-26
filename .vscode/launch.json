@@ -35,6 +35,14 @@
       "url": "http://localhost:7400",
       "webRoot": "${workspaceFolder}/qdrant-uploader/src",
       "sourceMaps": true
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "orillusion-clone",
+      "url": "http://localhost:7500",
+      "webRoot": "${workspaceFolder}/orillusion-clone/src",
+      "sourceMaps": true
     }
   ]
 }
